@@ -19,22 +19,25 @@ def find_reactions(pos):
 
     for i in range (len(spacing)):
         if (i < 2):
-            out[pos + spacing[i]] = m2 / 2
+            out[pos + spacing[i]] = - m2 / 2
             #out.append((pos + spacing[i], m2 / 2))
         else:
-            out[pos + spacing[i]] = m1 / 2
+            out[pos + spacing[i]] = - m1 / 2
             #out.append((pos + spacing[i], m1 / 2))
     
     #find B
+    temp = {}
+    for i in out.keys():
+        if (i >= 0):
+            temp[i] = out[i]
+    out = temp
+
     b = 0
     for i in out.keys():
-        if (out[i] < 0): 
-            out.pop(out[i])
-            continue # ignore force when not on bridge
         b += (i - 25) * out[i]
     
-    b /= 1200
-    a = m1 + m2 - b
+    b /= -1200
+    a = m1 + m1 + m2 - b
     out[25] = a
     out[1225] = b
 
@@ -77,5 +80,5 @@ BMD = bmd(1028)
 
 with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
     for i in range(len(BMD)):
-        file.write(str(i) + " " + str(BMD[i]) + " \n")
+        file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " \n")
 
