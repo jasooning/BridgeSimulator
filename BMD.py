@@ -18,26 +18,20 @@ def find_reactions(pos):
     #create array of train forces
 
     for i in range (len(spacing)):
+        if not (0 <= pos + spacing[i] <= 1250): continue
         if (i < 2):
             out[pos + spacing[i]] = - m2 / 2
             #out.append((pos + spacing[i], m2 / 2))
         else:
             out[pos + spacing[i]] = - m1 / 2
             #out.append((pos + spacing[i], m1 / 2))
-    
-    #find B
-    temp = {}
-    for i in out.keys():
-        if (i >= 0):
-            temp[i] = out[i]
-    out = temp
 
     b = 0
     for i in out.keys():
         b += (i - 25) * out[i]
     
     b /= -1200
-    a = m1 + m1 + m2 - b
+    a = -sum(out.values()) - b
     out[25] = a
     out[1225] = b
 
@@ -52,7 +46,7 @@ def sfd(forces):
 
     value = 0
 
-    for i in range(1250):
+    for i in range(1251):
         if i in forces:
             value += forces[i]
         out.append(value)
@@ -62,23 +56,43 @@ def sfd(forces):
 def bmd(pos):
     d = find_reactions(pos)
     forces = sfd(d)
-
     out = []
-    for i in range(1250):
+
+    for i in range(1251):
         out.append(numpy.sum(forces[:i]))
     
     return out
 
+def envelope():
+    env = bmd(0)
+    for i in range(0, 1251 + 856, 1):
+        bmdd = bmd(i)
+        env = maxl(env, bmdd)
+
+    return env
+
+def maxl(a, b):
+    out = []
+    for i in range(len(a)):
+        out.append(max(a[i], b[i]))
+    return out
 
 R = find_reactions(1028)
 SFD = sfd(R)
 BMD = bmd(1028)
 
+ENV = envelope()
+
 #for i in range(len(BMD)):
 #    print (i, BMD[i])
+
+#print(ENV)
+
+
 
 
 with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
     for i in range(len(BMD)):
-        file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " \n")
+        file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV[i]) + " \n")
+
 
