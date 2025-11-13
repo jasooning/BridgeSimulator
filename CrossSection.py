@@ -64,23 +64,28 @@ def I(rects):
 
 #ybar relative to very bottom of cross-section
 #to find ybar relative
-def local_ybar(rects):
+def ybar_bot(rects):
     YBAR = ybar(rects)
 
     return YBAR - min([a[1] - a[3] / 2 for a in rects])
 
-file = load_file("/Users/gregoryparamonau/Desktop/BRIDGE/BridgeSimulator/test_shape.txt")
+def ybar_top(rects):
+    yb = ybar_bot(rects)
+    h = max([a[1] + a[3] / 2 for a in rects]) - min([a[1] - a[3] / 2 for a in rects])
+    return h - yb
 
-rects = []
+def get_rects():
+    file = load_file("/Users/gregoryparamonau/Desktop/BRIDGE/BridgeSimulator/test_shape.txt")
 
-for i in file:
-    rects.append(convert_to_rect(i))
+    rects = []
 
-print (local_ybar(rects), I(rects))
-
-
-
-
+    for i in file:
+        rects.append(convert_to_rect(i))
     
+    return rects
 
-#print(convert_to_rect([(0, 0), (1, 1), (1, 0), (0, 1)]))
+if __name__ == "__main__":
+
+    rects = get_rects()
+
+    print (ybar_bot(rects), I(rects))
