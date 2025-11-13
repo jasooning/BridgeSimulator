@@ -67,7 +67,8 @@ def envelope():
     env = bmd(0)
     for i in range(0, 1251 + 856, 1):
         bmdd = bmd(i)
-        env = maxl(env, bmdd)
+        env = [m if abs(m) > abs(e) else e for m, e in zip(env, bmdd)]
+        #env = maxl(env, bmdd)
 
     return env
 
