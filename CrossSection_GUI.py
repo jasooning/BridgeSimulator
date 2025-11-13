@@ -3,20 +3,18 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QPushButton, QFileDialog, QLabel, QMessageBox, QTreeWidget, QTreeWidgetItem
+    QPushButton, QFileDialog, QLabel, QMessageBox, QTreeWidget, QTreeWidgetItem,
+    QInputDialog, QMenu
 )
 from PyQt5.QtGui import QPainter, QPen, QColor
-from PyQt5.QtCore import Qt, QPoint, QRectF
+from PyQt5.QtCore import Qt, QPoint, QRectF, pyqtSignal
+import math
 
-# Grid and drawing constants
-# We want the spacing between each grid point to be 5 mm. Screens are measured in pixels;
-# to map millimeters to pixels we assume a common desktop DPI of 96 (pixels/inch).
-# px_per_mm = DPI / 25.4. If you need a different DPI, change DPI value below.
-DPI = 96.0
-MM_PER_GRID = 5.0
-PX_PER_MM = DPI / 25.4
-GRID_SIZE = int(round(MM_PER_GRID * PX_PER_MM))  # pixels per grid step (approx for 5 mm)
-LINE_WIDTH = 4
+# Measurement units: treat 1 pixel == 1 mm as requested
+PX_PER_MM = 50.0
+# Make lines slightly thicker so they are easier to click
+LINE_PIXEL_WIDTH = 4  # pen width in device pixels
+VERTEX_RADIUS_PX = 4  # vertex marker radius in device pixels
 BTN_SIZE = 18
 
 class LineSeg:
@@ -31,11 +29,6 @@ class ShapeObj:
         self.color = color
         self.lines: list[LineSeg] = []
 
-class CompositeObj:
-    def __init__(self, name):
-        self.name = name
-        self.children: list[str] = []  # names of shapes or composites
-
 class GlueTab:
     def __init__(self, a: QPoint=None, b: QPoint=None):
         self.a = a
@@ -43,98 +36,342 @@ class GlueTab:
         self.id = id(self)
 
 class GridWidget(QWidget):
+    shapes_changed = pyqtSignal()
     def __init__(self):
         super().__init__()
         self.shapes: dict[str, ShapeObj] = {}
-        self.composites: dict[str, CompositeObj] = {}
         self.glue_tabs: dict[int, GlueTab] = {}
         self.current_mode = 'shape'
         self.selected_shape: str | None = None
+        self.selected_segment_id: int | None = None
         self.selected_glue_id: int | None = None
         self.dragging = False
         self.drag_start: QPoint | None = None
-        self.delete_buttons: dict[int, QPushButton] = {}
+        # (no inline widgets) segments will be clickable and show a popup menu
+        # track selected vertex for starting/ending lines
+        self.selected_vertex = None  # tuple (shape_name, seg, 'a'|'b') or None
+        # Zoom / view scale (1.0 = 100%) and pan offset (world coords)
+        self.scale = 1.0
+        self.offset_x = 0.0
+        self.offset_y = 0.0
+        self.zoom_mode = False
+        # panning state
+        self.panning = False
+        self.pan_start_dev = None
+        self.pan_start_off = (0.0, 0.0)
+        self._auto_fitted = False
+        self.hover_target = None  # tuple (owner_type, owner, seg) when mouse hovers near a segment
         self.setMouseTracking(True)
 
-    def snap(self, p: QPoint) -> QPoint:
-        """Snap a QPoint to the nearest grid intersection (grid defined by GRID_SIZE pixels).
+    def to_world(self, p: QPoint) -> QPoint:
+        """Convert device/widget coordinates to world coordinates (unscaled).
 
-        Note: GRID_SIZE is computed from MM_PER_GRID and PX_PER_MM so this implements a
-        ~5 mm spacing between grid points (in pixels).
+        The drawing data is stored in world coordinates. When zoomed, we scale the painter
+        when drawing; mouse events provide device coordinates which must be mapped back.
         """
-        return QPoint(round(p.x()/GRID_SIZE)*GRID_SIZE, round(p.y()/GRID_SIZE)*GRID_SIZE)
+        if self.scale == 0:
+            return QPoint(p.x(), p.y())
+        total_scale = self.scale * PX_PER_MM
+        # world = offset + device/total_scale
+        wx = self.offset_x + (p.x() / total_scale)
+        wy = self.offset_y + (p.y() / total_scale)
+        return QPoint(int(round(wx)), int(round(wy)))
+
+    def to_device(self, p: QPoint) -> QPoint:
+        """Convert world coordinates to device/widget coordinates (apply scale).
+        """
+        total_scale = self.scale * PX_PER_MM
+        dx = (p.x() - self.offset_x) * total_scale
+        dy = (p.y() - self.offset_y) * total_scale
+        return QPoint(int(round(dx)), int(round(dy)))
+
+    # kept for compatibility with earlier calls; behaves like to_world (no grid snapping)
+    def snap(self, p: QPoint) -> QPoint:
+        return self.to_world(p)
 
     def paintEvent(self, e):
         p = QPainter(self)
         w, h = self.width(), self.height()
         p.fillRect(QRectF(0,0,w,h), QColor(255,255,255))
 
-        pen = QPen(QColor(230,230,230), 1)
-        p.setPen(pen)
-        for x in range(0, w, GRID_SIZE): p.drawLine(x, 0, x, h)
-        for y in range(0, h, GRID_SIZE): p.drawLine(0, y, w, y)
+        total_scale = self.scale * PX_PER_MM
 
+        # Draw shapes and glue using device coordinates computed from world (mm) coords
         for shp in self.shapes.values():
-            pen = QPen(shp.color, LINE_WIDTH)
+            pen = QPen(shp.color, LINE_PIXEL_WIDTH)
             p.setPen(pen)
             for seg in shp.lines:
-                p.drawLine(seg.a, seg.b)
+                a_dev = self.to_device(seg.a)
+                b_dev = self.to_device(seg.b)
+                # draw hover outline underneath if this segment is hovered
+                if self.hover_target and self.hover_target[0] == 'shape' and self.hover_target[2].id == seg.id:
+                    hpen = QPen(QColor(255, 120, 0, 180), max(1, LINE_PIXEL_WIDTH + 4))
+                    hpen.setCapStyle(Qt.RoundCap)
+                    p.setPen(hpen)
+                    p.drawLine(a_dev, b_dev)
+                    p.setPen(pen)
+                p.drawLine(a_dev, b_dev)
+                # draw small vertex markers (fixed size in device pixels)
+                vpen = QPen(QColor(0,0,0), 1)
+                p.setPen(vpen)
+                p.setBrush(QColor(200,200,255))
+                r = VERTEX_RADIUS_PX
+                p.drawEllipse(QRectF(a_dev.x()-r, a_dev.y()-r, r*2, r*2))
+                p.drawEllipse(QRectF(b_dev.x()-r, b_dev.y()-r, r*2, r*2))
+                # restore pen for line text after drawing markers
+                p.setPen(pen)
+                # draw length label near midpoint (length in mm)
+                mx = (seg.a.x() + seg.b.x())/2.0
+                my = (seg.a.y() + seg.b.y())/2.0
+                length = math.hypot(seg.b.x()-seg.a.x(), seg.b.y()-seg.a.y())
+                text = f"{length:.1f} mm"
+                # small offset perpendicular to the line for better visibility (in mm -> convert to dev)
+                dx = seg.b.x() - seg.a.x(); dy = seg.b.y() - seg.a.y()
+                if dx == 0 and dy == 0:
+                    ox_mm, oy_mm = 6, -18
+                else:
+                    norm = math.hypot(dx, dy)
+                    ox_mm = -dy / norm * 18
+                    oy_mm = dx / norm * 18
+                # convert label pos to device coords
+                label_dev = self.to_device(QPoint(int(round(mx+ox_mm)), int(round(my+oy_mm))))
+                p.drawText(label_dev.x(), label_dev.y(), text)
 
-        pen = QPen(QColor(0,120,0), LINE_WIDTH, Qt.DashLine)
+        pen = QPen(QColor(0,120,0), LINE_PIXEL_WIDTH, Qt.DashLine)
         p.setPen(pen)
         for glue in self.glue_tabs.values():
-            if glue.a and glue.b: p.drawLine(glue.a, glue.b)
+            if glue.a and glue.b:
+                a_dev = self.to_device(glue.a)
+                b_dev = self.to_device(glue.b)
+                # highlight glue if hovered
+                if self.hover_target and self.hover_target[0] == 'glue' and self.hover_target[2].id == glue.id:
+                    hpen = QPen(QColor(255, 120, 0, 180), max(1, LINE_PIXEL_WIDTH + 4))
+                    hpen.setCapStyle(Qt.RoundCap)
+                    p.setPen(hpen)
+                    p.drawLine(a_dev, b_dev)
+                    p.setPen(pen)
+                p.drawLine(a_dev, b_dev)
 
         if self.dragging and self.drag_start:
-            pos = self.mapFromGlobal(self.cursor().pos())
-            snap_pos = self.snap(pos)
-            pen = QPen(QColor(0,0,0), LINE_WIDTH, Qt.DotLine)
+            # show preview line from drag_start to current cursor position (in world coords)
+            pos_dev = self.mapFromGlobal(self.cursor().pos())
+            pos_world = self.to_world(pos_dev)
+            # constrain to horizontal or vertical for preview
+            dx = pos_world.x() - self.drag_start.x(); dy = pos_world.y() - self.drag_start.y()
+            if abs(dx) >= abs(dy):
+                preview_end = QPoint(pos_world.x(), self.drag_start.y())
+            else:
+                preview_end = QPoint(self.drag_start.x(), pos_world.y())
+            pen = QPen(QColor(0,0,0), LINE_PIXEL_WIDTH, Qt.DotLine)
             p.setPen(pen)
-            p.drawLine(self.drag_start, snap_pos)
-        p.end()
-        self.update_delete_buttons()
+            p.drawLine(self.to_device(self.drag_start), self.to_device(preview_end))
 
     def mousePressEvent(self, ev):
         if ev.button() == Qt.LeftButton:
-            pt = self.snap(ev.pos())
+            pt_dev = ev.pos()
+            pt = self.to_world(pt_dev)
             if ev.modifiers() & Qt.ShiftModifier:
                 self.delete_nearest_segment(ev.pos()); return
+            # If pan_mode is active, start panning with left button
+            if getattr(self, 'pan_mode', False):
+                self.panning = True
+                self.pan_start_dev = ev.pos()
+                self.pan_start_off = (self.offset_x, self.offset_y)
+                return
+            # If clicked near an existing vertex, start dragging from that vertex
+            v = self.find_nearest_vertex(pt, thresh=6)
+            if v:
+                shape_name, seg, which, vpt = v
+                self.selected_vertex = (shape_name, seg, which)
+                self.dragging = True; self.drag_start = QPoint(vpt.x(), vpt.y())
+                return
+            # If hovered over a segment, prefer that as the click target and show popup menu
+            if self.hover_target:
+                stype, owner, sobj = self.hover_target
+                menu = QMenu(self)
+                if stype == 'shape':
+                    a = menu.addAction("Delete Segment")
+                    a.triggered.connect(lambda _, sid=sobj.id: self.delete_segment_by_id(sid))
+                    b = menu.addAction("Edit Segment Length")
+                    b.triggered.connect(lambda _, sid=sobj.id: self.edit_segment_by_id(sid))
+                else:
+                    a = menu.addAction("Delete Glue")
+                    a.triggered.connect(lambda _, gid=owner: self.delete_glue_by_id(gid))
+                    b = menu.addAction("Edit Glue Length")
+                    b.triggered.connect(lambda _, gid=owner: self.edit_glue_by_id(gid))
+                menu.exec_(ev.globalPos())
+                return
+            # otherwise fall back to device-space nearest-segment detection
+            stype, owner, sobj = self.find_nearest_segment_dev(ev.pos(), thresh_px=10)
+            if stype:
+                menu = QMenu(self)
+                if stype == 'shape':
+                    a = menu.addAction("Delete Segment")
+                    a.triggered.connect(lambda _, sid=sobj.id: self.delete_segment_by_id(sid))
+                    b = menu.addAction("Edit Segment Length")
+                    b.triggered.connect(lambda _, sid=sobj.id: self.edit_segment_by_id(sid))
+                else:
+                    a = menu.addAction("Delete Glue")
+                    a.triggered.connect(lambda _, gid=owner: self.delete_glue_by_id(gid))
+                    b = menu.addAction("Edit Glue Length")
+                    b.triggered.connect(lambda _, gid=owner: self.edit_glue_by_id(gid))
+                menu.exec_(ev.globalPos())
+                return
             if self.current_mode == 'shape' and self.selected_shape:
                 self.dragging = True; self.drag_start = pt
             elif self.current_mode == 'glue' and self.selected_glue_id is not None:
                 self.dragging = True; self.drag_start = pt
+        elif ev.button() == Qt.MiddleButton:
+            # start panning
+            self.panning = True
+            self.pan_start_dev = ev.pos()
+            self.pan_start_off = (self.offset_x, self.offset_y)
 
     def mouseMoveEvent(self, ev):
-        if self.dragging: self.update()
+        if self.panning and self.pan_start_dev is not None:
+            # compute device delta and update offset (world units)
+            dx = ev.pos().x() - self.pan_start_dev.x()
+            dy = ev.pos().y() - self.pan_start_dev.y()
+            total_scale = self.scale * PX_PER_MM
+            self.offset_x = self.pan_start_off[0] - (dx / total_scale)
+            self.offset_y = self.pan_start_off[1] - (dy / total_scale)
+            self.update()
+            return
+        if self.dragging:
+            self.update()
+            return
+
+        # update hover target when not panning or dragging
+        pos_dev = ev.pos()
+        stype, owner, sobj = self.find_nearest_segment_dev(pos_dev, thresh_px=None)
+        new_hover = (stype, owner, sobj) if stype else None
+        if (self.hover_target is None and new_hover is not None) or (self.hover_target is not None and new_hover is None) or (self.hover_target is not None and new_hover is not None and self.hover_target[2].id != new_hover[2].id):
+            self.hover_target = new_hover
+            self.update()
 
     def mouseReleaseEvent(self, ev):
+        # If left button released while panning (Pan Mode), stop panning
+        if ev.button() == Qt.LeftButton and self.panning:
+            self.panning = False
+            self.pan_start_dev = None
+            self.pan_start_off = (self.offset_x, self.offset_y)
+            self.update()
+            return
+
         if ev.button() == Qt.LeftButton and self.dragging and self.drag_start:
-            end = self.snap(ev.pos())
+            end = self.to_world(ev.pos())
+            # Constrain to horizontal or vertical relative to drag_start
+            dx = end.x() - self.drag_start.x(); dy = end.y() - self.drag_start.y()
+            if abs(dx) >= abs(dy):
+                end = QPoint(end.x(), self.drag_start.y())
+            else:
+                end = QPoint(self.drag_start.x(), end.y())
+            # If released near an existing vertex, snap to it
+            v = self.find_nearest_vertex(end, thresh=6)
+            if v:
+                _, _, _, vpt = v
+                end = QPoint(vpt.x(), vpt.y())
             if end != self.drag_start:
                 if self.current_mode == 'shape' and self.selected_shape:
                     shp = self.shapes.get(self.selected_shape)
-                    if shp: shp.lines.append(LineSeg(self.drag_start, end))
+                    if shp:
+                        shp.lines.append(LineSeg(self.drag_start, end))
+                        # notify listeners (sidebar) that shapes changed
+                        self.shapes_changed.emit()
                 elif self.current_mode == 'glue' and self.selected_glue_id is not None:
                     glue = self.glue_tabs.get(self.selected_glue_id)
-                    if glue: glue.a, glue.b = self.drag_start, end
+                    if glue:
+                        glue.a, glue.b = self.drag_start, end
+                        self.shapes_changed.emit()
             self.dragging = False; self.drag_start = None; self.update()
+        elif ev.button() == Qt.MiddleButton and self.panning:
+            self.panning = False
+            self.pan_start_dev = None
+            self.pan_start_off = (self.offset_x, self.offset_y)
+            self.update()
 
     def delete_nearest_segment(self, pos):
+        # pos is device coords; convert to world coords for comparison
+        pos_w = self.to_world(pos)
         best, best_d, owner, owner_type = None, 9999, None, None
         for name, shp in self.shapes.items():
             for seg in shp.lines:
-                d = self._point_seg_dist(pos, seg.a, seg.b)
+                d = self._point_seg_dist(pos_w, seg.a, seg.b)
                 if d < best_d: best_d, best, owner, owner_type = d, seg, name, 'shape'
         for gid, glue in self.glue_tabs.items():
             if glue.a and glue.b:
-                d = self._point_seg_dist(pos, glue.a, glue.b)
+                d = self._point_seg_dist(pos_w, glue.a, glue.b)
                 if d < best_d: best_d, best, owner, owner_type = d, glue, gid, 'glue'
+        # threshold in world pixels (approx)
         if best and best_d < 12:
             if owner_type == 'shape':
                 self.shapes[owner].lines = [s for s in self.shapes[owner].lines if s.id != best.id]
+                self.shapes_changed.emit()
             else:
                 del self.glue_tabs[owner]
+                self.shapes_changed.emit()
             self.update()
+
+    def find_nearest_segment(self, p: QPoint, thresh: float = 6.0):
+        """Find nearest segment (shape or glue) to world point p.
+
+        Returns tuple (owner_type, owner_id_or_name, seg_obj) or (None, None, None).
+        """
+        best_d = float('inf'); best_item = (None, None, None)
+        for name, shp in self.shapes.items():
+            for seg in shp.lines:
+                d = self._point_seg_dist(p, seg.a, seg.b)
+                if d < best_d:
+                    best_d = d; best_item = ('shape', name, seg)
+        for gid, glue in self.glue_tabs.items():
+            if glue.a and glue.b:
+                d = self._point_seg_dist(p, glue.a, glue.b)
+                if d < best_d:
+                    best_d = d; best_item = ('glue', gid, glue)
+        if best_item[0] and best_d <= thresh:
+            return best_item
+        return (None, None, None)
+
+    def _point_seg_dist_dev(self, p_dev: QPoint, a_dev: QPoint, b_dev: QPoint):
+        """Distance from device point p_dev to device segment a_dev-b_dev (pixels)."""
+        px, py = p_dev.x(), p_dev.y()
+        x1, y1 = a_dev.x(), a_dev.y(); x2, y2 = b_dev.x(), b_dev.y()
+        dx, dy = x2-x1, y2-y1
+        if dx == 0 and dy == 0:
+            return math.hypot(px-x1, py-y1)
+        t = ((px-x1)*dx + (py-y1)*dy) / (dx*dx + dy*dy)
+        t = max(0.0, min(1.0, t))
+        projx, projy = x1 + t*dx, y1 + t*dy
+        return math.hypot(px-projx, py-projy)
+
+    def find_nearest_segment_dev(self, pos_dev: QPoint, thresh_px: float | None = None):
+        """Find nearest segment using device coordinates so clicks work regardless of zoom/pan.
+
+        Returns tuple (owner_type, owner_id_or_name, seg_obj) or (None, None, None).
+        """
+        best_d = float('inf'); best_item = (None, None, None)
+        for name, shp in self.shapes.items():
+            for seg in shp.lines:
+                a_dev = self.to_device(seg.a)
+                b_dev = self.to_device(seg.b)
+                d = self._point_seg_dist_dev(pos_dev, a_dev, b_dev)
+                if d < best_d:
+                    best_d = d; best_item = ('shape', name, seg)
+        for gid, glue in self.glue_tabs.items():
+            if glue.a and glue.b:
+                a_dev = self.to_device(glue.a)
+                b_dev = self.to_device(glue.b)
+                d = self._point_seg_dist_dev(pos_dev, a_dev, b_dev)
+                if d < best_d:
+                    best_d = d; best_item = ('glue', gid, glue)
+        # determine pixel threshold (if not provided, base on line visual width)
+        if thresh_px is None:
+            thr = max(10, int(round(LINE_PIXEL_WIDTH * 1.5)))
+        else:
+            thr = thresh_px
+        if best_item[0] and best_d <= thr:
+            return best_item
+        return (None, None, None)
 
     def _point_seg_dist(self, p, a, b):
         px, py, x1, y1, x2, y2 = p.x(), p.y(), a.x(), a.y(), b.x(), b.y()
@@ -145,47 +382,175 @@ class GridWidget(QWidget):
         projx, projy = x1+t*dx, y1+t*dy
         return ((px-projx)**2+(py-projy)**2)**0.5
 
-    def update_delete_buttons(self):
-        existing_ids = {seg.id for shp in self.shapes.values() for seg in shp.lines} | {g.id for g in self.glue_tabs.values()}
-        for bid in list(self.delete_buttons.keys()):
-            if bid not in existing_ids:
-                b = self.delete_buttons.pop(bid); b.setParent(None); b.deleteLater()
-        for shp in self.shapes.values():
-            for seg in shp.lines:
-                self._ensure_button_for(seg, 'shape', shp.name)
-        for gid, glue in self.glue_tabs.items():
-            if glue.a and glue.b:
-                self._ensure_button_for(glue, 'glue', gid)
+    def _point_point_dist(self, p, a):
+        return ((p.x()-a.x())**2 + (p.y()-a.y())**2)**0.5
 
-    def _ensure_button_for(self, seg, owner_type, owner):
-        mid = QPoint((seg.a.x()+seg.b.x())//2, (seg.a.y()+seg.b.y())//2)
-        if seg.id in self.delete_buttons:
-            self.delete_buttons[seg.id].move(mid.x()-BTN_SIZE//2, mid.y()-BTN_SIZE//2)
+    def find_nearest_vertex(self, p: QPoint, thresh: float = 6.0):
+        """Find nearest vertex (endpoint of any segment) within thresh (world units).
+
+        Returns tuple (shape_name, seg, 'a'|'b', QPoint) or None.
+        """
+        best_d = float('inf'); best_item = None
+        for name, shp in self.shapes.items():
+            for seg in shp.lines:
+                da = self._point_point_dist(p, seg.a)
+                if da < best_d:
+                    best_d = da; best_item = (name, seg, 'a', seg.a)
+                db = self._point_point_dist(p, seg.b)
+                if db < best_d:
+                    best_d = db; best_item = (name, seg, 'b', seg.b)
+        if best_item and best_d <= thresh:
+            return best_item
+        return None
+
+    def set_zoom_mode(self, on: bool):
+        self.zoom_mode = bool(on)
+
+    def wheelEvent(self, ev):
+        # Zoom when in zoom_mode. Use angleDelta().y() to compute factor.
+        if not self.zoom_mode:
+            # default: ignore (could be used for vertical scrolling later)
             return
-        btn = QPushButton("✕", self)
-        btn.setFixedSize(BTN_SIZE, BTN_SIZE)
-        btn.setStyleSheet("background:rgba(255,200,200,180);font-weight:bold;")
-        btn.move(mid.x()-BTN_SIZE//2, mid.y()-BTN_SIZE//2)
-        if owner_type == 'shape':
-            btn.clicked.connect(lambda _, s=seg, n=owner: self._del_seg(s,n))
-        else:
-            btn.clicked.connect(lambda _, g=owner: self._del_glue(g))
-        btn.show()
-        self.delete_buttons[seg.id] = btn
+        delta = ev.angleDelta().y()
+        if delta == 0:
+            return
+        # compute cursor device pos and corresponding world pos BEFORE zoom using floats
+        pos_dev = ev.pos()
+        total_scale = self.scale * PX_PER_MM
+        # world coords (float) = offset + device / total_scale
+        pos_world_x = self.offset_x + (pos_dev.x() / total_scale)
+        pos_world_y = self.offset_y + (pos_dev.y() / total_scale)
+        # smooth factor
+        factor = 1.001 ** delta
+        new_scale = max(0.01, min(20.0, self.scale * factor))
+        # apply new scale and compute offsets so the visual cursor location maps to the same world point
+        self.scale = new_scale
+        total_scale = self.scale * PX_PER_MM
+        self.offset_x = pos_world_x - (pos_dev.x() / total_scale)
+        self.offset_y = pos_world_y - (pos_dev.y() / total_scale)
+        self.update()
+
+    def resizeEvent(self, ev):
+        # On first resize, set scale so that the view covers approx 200 x 200 world units
+        if not self._auto_fitted:
+            w = self.width(); h = self.height()
+            if w > 0 and h > 0:
+                # total pixels-per-mm = w/200 -> scale = (pixels-per-mm) / PX_PER_MM
+                self.scale = min(w / 200.0, h / 200.0) / PX_PER_MM
+                self.offset_x = 0.0
+                self.offset_y = 0.0
+                self._auto_fitted = True
+        super().resizeEvent(ev)
+
+    # inline widget helpers removed; segments are now clickable and use a popup menu
+
+    def find_segment_by_id(self, seg_id: int):
+        for name, shp in self.shapes.items():
+            for seg in shp.lines:
+                if seg.id == seg_id:
+                    return name, seg
+        return None, None
+
+    def delete_glue_by_id(self, gid: int):
+        if gid in self.glue_tabs:
+            del self.glue_tabs[gid]
+            try:
+                self.shapes_changed.emit()
+            except Exception:
+                pass
+            self.update()
+
+    def edit_glue_by_id(self, gid: int):
+        g = self.glue_tabs.get(gid)
+        if g:
+            self._edit_length(g, 'glue', gid)
+
+    def delete_segment_by_id(self, seg_id: int):
+        name, seg = self.find_segment_by_id(seg_id)
+        if name and seg:
+            self.shapes[name].lines = [s for s in self.shapes[name].lines if s.id != seg_id]
+            self.shapes_changed.emit()
+            self.update()
+
+    def edit_segment_by_id(self, seg_id: int):
+        name, seg = self.find_segment_by_id(seg_id)
+        if seg:
+            # reuse existing edit handler for shapes
+            self._edit_length(seg, 'shape', name)
 
     def _del_seg(self, seg, shape_name):
         shp = self.shapes.get(shape_name)
         if shp: shp.lines = [s for s in shp.lines if s.id != seg.id]
-        if seg.id in self.delete_buttons:
-            b = self.delete_buttons.pop(seg.id); b.setParent(None); b.deleteLater()
+        try:
+            self.shapes_changed.emit()
+        except Exception:
+            pass
         self.update()
 
     def _del_glue(self, gid):
         if gid in self.glue_tabs:
             g = self.glue_tabs.pop(gid)
-            if g.id in self.delete_buttons:
-                b = self.delete_buttons.pop(g.id); b.setParent(None); b.deleteLater()
+            try:
+                self.shapes_changed.emit()
+            except Exception:
+                pass
             self.update()
+
+    def _edit_length(self, seg_or_glue, owner_type, owner):
+        """Open a dialog to set length in millimeters for a segment or glue tab.
+
+        seg_or_glue: LineSeg instance when owner_type=='shape', or GlueTab when 'glue'.
+        """
+        # Determine endpoints
+        if owner_type == 'shape':
+            seg = seg_or_glue
+            a = seg.a
+            b = seg.b
+        else:
+            g = seg_or_glue if isinstance(seg_or_glue, GlueTab) else self.glue_tabs.get(seg_or_glue)
+            if not g or not g.a or not g.b:
+                QMessageBox.information(self, "Edit Length", "Glue tab does not have endpoints yet.")
+                return
+            a = g.a; b = g.b
+
+        # Current length in mm (world coords are mm)
+        cur_mm = math.hypot(b.x()-a.x(), b.y()-a.y())
+        val, ok = QInputDialog.getDouble(self, "Set length", "Length (mm):", cur_mm, 0.0, 100000.0, 3)
+        if not ok:
+            return
+        new_mm = val
+
+        dx = b.x() - a.x(); dy = b.y() - a.y()
+        if dx == 0 and dy == 0:
+            angle = 0.0
+        else:
+            angle = math.atan2(dy, dx)
+
+        nx = int(round(a.x() + math.cos(angle) * new_mm))
+        ny = int(round(a.y() + math.sin(angle) * new_mm))
+        # new_pt is in world coords (mm)
+        new_pt = QPoint(nx, ny)
+
+        if owner_type == 'shape':
+            seg.b = new_pt
+        else:
+            g.a = a; g.b = new_pt
+        self.update()
+
+    # --- Zoom / view control methods ---
+    def set_scale(self, scale: float):
+        self.scale = max(0.1, min(10.0, float(scale)))
+        # reposition buttons and redraw
+        self.update()
+
+    def zoom_in(self):
+        self.set_scale(self.scale * 1.25)
+
+    def zoom_out(self):
+        self.set_scale(self.scale / 1.25)
+
+    def reset_zoom(self):
+        self.set_scale(1.0)
 
 class Sidebar(QWidget):
     def __init__(self, grid: GridWidget):
@@ -193,24 +558,50 @@ class Sidebar(QWidget):
         self.grid = grid
         self.layout = QVBoxLayout(self)
 
-        self.layout.addWidget(QLabel("Shapes / Composites"))
+        self.layout.addWidget(QLabel("Shapes"))
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setDragDropMode(QTreeWidget.InternalMove)
         self.tree.itemClicked.connect(self.on_click)
+        # Rebuild the tree when shapes change in the grid
+        try:
+            self.grid.shapes_changed.connect(self.rebuild_tree)
+        except Exception:
+            pass
         self.layout.addWidget(self.tree)
 
         btns = QHBoxLayout()
         nb = QPushButton("New Shape"); nb.clicked.connect(self.new_shape); btns.addWidget(nb)
-        nc = QPushButton("New Composite"); nc.clicked.connect(self.new_comp); btns.addWidget(nc)
         nd = QPushButton("Delete"); nd.clicked.connect(self.delete_selected); btns.addWidget(nd)
         self.layout.addLayout(btns)
+
+    # (segment operations removed; use click-on-segment popup/menu instead)
 
         self.layout.addWidget(QLabel("Glue Tabs"))
         gbtns = QHBoxLayout()
         gg = QPushButton("New Glue"); gg.clicked.connect(self.new_glue); gbtns.addWidget(gg)
         gd = QPushButton("Delete Glue"); gd.clicked.connect(self.delete_glue); gbtns.addWidget(gd)
         self.layout.addLayout(gbtns)
+
+        # Zoom mode: when toggled, mouse wheel / trackpad will zoom around cursor
+        zbtns = QHBoxLayout()
+        zmode = QPushButton("Zoom Mode")
+        zmode.setCheckable(True)
+        zmode.toggled.connect(lambda v: self.grid.set_zoom_mode(v))
+        zbtns.addWidget(zmode)
+        zinstruct = QLabel("(use two-finger scroll or mouse wheel when Zoom Mode is on)")
+        zbtns.addWidget(zinstruct)
+        self.layout.addLayout(zbtns)
+
+        # Pan mode toggle: when on, left-drag will pan the view instead of drawing
+        pbtns = QHBoxLayout()
+        pmode = QPushButton("Pan Mode")
+        pmode.setCheckable(True)
+        pmode.toggled.connect(lambda v: setattr(self.grid, 'pan_mode', bool(v)))
+        pbtns.addWidget(pmode)
+        pinstruct = QLabel("(left-drag to pan when Pan Mode is on)")
+        pbtns.addWidget(pinstruct)
+        self.layout.addLayout(pbtns)
 
         exp = QPushButton("Export TXT"); exp.clicked.connect(self.export_txt); self.layout.addWidget(exp)
         self.layout.addStretch()
@@ -228,25 +619,46 @@ class Sidebar(QWidget):
         self.grid.selected_shape = name
         self.grid.current_mode = 'shape'
         self.grid.update()
+        try:
+            self.grid.shapes_changed.emit()
+        except Exception:
+            pass
 
-    def new_comp(self):
-        name = f"Composite_{len(self.grid.composites)+1}"
-        comp = CompositeObj(name)
-        self.grid.composites[name] = comp
-        item = QTreeWidgetItem([name])
-        item.setForeground(0, QColor(0,0,180))
-        self.tree.addTopLevelItem(item)
-        self.grid.update()
+    # composites feature removed
 
     def on_click(self, item):
-        name = item.text(0)
-        if name in self.grid.shapes:
-            self.grid.selected_shape = name
+        # If the clicked item has a parent, it's a segment entry
+        parent = item.parent()
+        if parent is not None:
+            # segment item
+            self.grid.selected_shape = parent.text(0)
+            seg_id = item.data(0, Qt.UserRole)
+            self.grid.selected_segment_id = seg_id
             self.grid.current_mode = 'shape'
-        elif name in self.grid.composites:
-            self.grid.selected_shape = None
-            self.grid.current_mode = ''
+        else:
+            name = item.text(0)
+            if name in self.grid.shapes:
+                self.grid.selected_shape = name
+                self.grid.current_mode = 'shape'
+            else:
+                self.grid.selected_shape = None
+                self.grid.current_mode = ''
         self.grid.update()
+
+    def rebuild_tree(self):
+        self.tree.clear()
+        for name, shp in self.grid.shapes.items():
+            item = QTreeWidgetItem([name])
+            item.setBackground(0, shp.color)
+            self.tree.addTopLevelItem(item)
+            # add segments as children
+            for seg in shp.lines:
+                dx = seg.b.x()-seg.a.x(); dy = seg.b.y()-seg.a.y()
+                length = ((dx*dx+dy*dy)**0.5)
+                child = QTreeWidgetItem([f"seg {seg.id}: L={length:.1f} mm"])
+                child.setData(0, Qt.UserRole, seg.id)
+                item.addChild(child)
+        # composites feature removed
 
     def delete_selected(self):
         item = self.tree.currentItem()
@@ -254,15 +666,13 @@ class Sidebar(QWidget):
         name = item.text(0)
         if name in self.grid.shapes:
             shp = self.grid.shapes.pop(name)
-            for seg in shp.lines:
-                if seg.id in self.grid.delete_buttons:
-                    b = self.grid.delete_buttons.pop(seg.id)
-                    b.setParent(None); b.deleteLater()
-        elif name in self.grid.composites:
-            del self.grid.composites[name]
         idx = self.tree.indexOfTopLevelItem(item)
         if idx >= 0: self.tree.takeTopLevelItem(idx)
         self.grid.update()
+        try:
+            self.grid.shapes_changed.emit()
+        except Exception:
+            pass
 
     def new_glue(self):
         g = GlueTab()
@@ -277,10 +687,30 @@ class Sidebar(QWidget):
         gid = self.grid.selected_glue_id or self.current_glue
         if gid and gid in self.grid.glue_tabs:
             g = self.grid.glue_tabs.pop(gid)
-            if g.id in self.grid.delete_buttons:
-                b = self.grid.delete_buttons.pop(g.id); b.setParent(None); b.deleteLater()
         self.grid.selected_glue_id = None
         self.grid.update()
+        try:
+            self.grid.shapes_changed.emit()
+        except Exception:
+            pass
+
+    def delete_selected_segment(self):
+        item = self.tree.currentItem()
+        if not item: return
+        parent = item.parent()
+        if parent is None: return
+        seg_id = item.data(0, Qt.UserRole)
+        if seg_id:
+            self.grid.delete_segment_by_id(seg_id)
+
+    def edit_selected_segment(self):
+        item = self.tree.currentItem()
+        if not item: return
+        parent = item.parent()
+        if parent is None: return
+        seg_id = item.data(0, Qt.UserRole)
+        if seg_id:
+            self.grid.edit_segment_by_id(seg_id)
 
     def export_txt(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export TXT", filter="Text Files (*.txt)")
@@ -296,33 +726,29 @@ class Sidebar(QWidget):
                 xs += [glue.a.x(), glue.b.x()]
                 ys += [glue.a.y(), glue.b.y()]
 
-        minx, miny = (min(xs), min(ys)) if xs and ys else (0, 0)
+        minx, maxy = (min(xs), max(ys)) if xs and ys else (0, 0)
 
-        # Helper: convert pixel value (relative to minx/miny) to mm using PX_PER_MM
+        # Helper: coordinates are stored in world units (mm); return mm relative to bottom-left origin
         def px_to_mm_tuple(px, py):
-            return (round((px - minx) / PX_PER_MM, 3), round((py - miny) / PX_PER_MM, 3))
+            # px,py are world coords in mm. Origin should be bottom-left: x relative to minx, y relative to maxy
+            return (round((px - minx), 3), round((maxy - py), 3))
+
 
         out_lines = []
         out_lines.append("SHAPES:")
-        # For shapes: output a list of vertex tuples in millimeters (relative to min coords)
+        # Export all regular shapes first: collect unique vertices per shape (deduplicate endpoints)
         for name, shp in self.grid.shapes.items():
-            pts_mm = [px_to_mm_tuple(seg.a.x(), seg.a.y()) for seg in shp.lines]
-            out_lines.append(f"{name}: {pts_mm}")
+            verts = []
+            seen = set()
+            for seg in shp.lines:
+                for pt in (seg.a, seg.b):
+                    key = (pt.x(), pt.y())
+                    if key not in seen:
+                        seen.add(key)
+                        verts.append(px_to_mm_tuple(pt.x(), pt.y()))
+            out_lines.append(f"{name}: {verts}")
 
-        # For composites: treat a composite like a shape but as a list of lists.
-        # Each inner list contains the vertex tuples (in mm) for one child shape.
-        out_lines.append("\nCOMPOSITES:")
-        for cname, comp in self.grid.composites.items():
-            comp_list = []
-            for child_name in comp.children:
-                child = self.grid.shapes.get(child_name)
-                if child:
-                    child_pts_mm = [px_to_mm_tuple(seg.a.x(), seg.a.y()) for seg in child.lines]
-                    comp_list.append(child_pts_mm)
-                else:
-                    # If child is missing, include an empty list to preserve indexing
-                    comp_list.append([])
-            out_lines.append(f"{cname}: {comp_list}")
+        # composites feature removed
 
         out_lines.append("\nGLUE_TABS:")
         for gid, g in self.grid.glue_tabs.items():
