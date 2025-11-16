@@ -61,6 +61,99 @@ def I(rects):
 
     return Iout
 
+#return rectangle intersection of rectangles a and b
+def intersect(a, b):
+    return [ (max(a[0]-a[2]/2, b[0]-b[2]/2) + min(a[0]+a[2]/2, b[0]+b[2]/2)) / 2,
+             (max(a[1]-a[3]/2, b[1]-b[3]/2) + min(a[1]+a[3]/2, b[1]+b[3]/2)) / 2,
+             max(0, min(a[0]+a[2]/2, b[0]+b[2]/2) - max(a[0]-a[2]/2, b[0]-b[2]/2)),
+             max(0, min(a[1]+a[3]/2, b[1]+b[3]/2) - max(a[1]-a[3]/2, b[1]-b[3]/2)) ]
+
+
+# return a list of rectangles representing (a minus b)
+def inv_intersect(a, b):
+    inter = intersect(a, b)
+    if inter is None:
+        return [a]   # no cut
+
+    ax1, ax2 = a[0] - a[2]/2, a[0] + a[2]/2
+    ay1, ay2 = a[1] - a[3]/2, a[1] + a[3]/2
+
+    ix1, ix2 = inter[0] - inter[2]/2, inter[0] + inter[2]/2
+    iy1, iy2 = inter[1] - inter[3]/2, inter[1] + inter[3]/2
+
+    pieces = []
+
+    # Top piece
+    if iy2 < ay2:
+        h = ay2 - iy2
+        pieces.append([a[0], (iy2 + ay2)/2, a[2], h])
+
+    # Bottom piece
+    if iy1 > ay1:
+        h = iy1 - ay1
+        pieces.append([a[0], (ay1 + iy1)/2, a[2], h])
+
+    # Left piece
+    if ix1 > ax1:
+        w = ix1 - ax1
+        cy = (max(ay1, iy1) + min(ay2, iy2)) / 2
+        h = min(ay2, iy2) - max(ay1, iy1)
+        if h > 0:
+            pieces.append([(ax1 + ix1)/2, cy, w, h])
+
+    # Right piece
+    if ix2 < ax2:
+        w = ax2 - ix2
+        cy = (max(ay1, iy1) + min(ay2, iy2)) / 2
+        h = min(ay2, iy2) - max(ay1, ay1)
+        h = min(ay2, iy2) - max(ay1, iy1)
+        if h > 0:
+            pieces.append([(ix2 + ax2)/2, cy, w, h])
+
+    return pieces
+
+
+# cleave rectangle a by an array of rectangles b
+def cleave(a, b_list):
+    pieces = [a]
+    for cutter in b_list:
+        new_pieces = []
+        for p in pieces:
+            new_pieces.extend(inv_intersect(p, cutter))
+        pieces = new_pieces
+    return pieces
+
+#gives Q (first moment of area) of the cross section (rects) at the centroidal axis (ybar) measured from bottom
+def Q(rects, ybar):
+    #first find rects below ybar
+    below = [0, ybar - 1000, 1000, 1000 * 2]
+
+    rects_below = []
+    for i in rects:
+        rects_below.append(intersect(i, below))
+
+    print ("rects below", rects_below)
+    
+    out = 0
+    for i in rects_below:
+        if i == None: continue
+        out += i[2] * i[3] * abs(i[1] - ybar)
+
+    return out
+
+#return width at centroid
+def width_at_centroid(rects, ybar):
+    centroid = [0, ybar, 1000, 0]
+
+    out = 0
+    for i in rects:
+        if i == None: continue
+        out += intersect(centroid, i)[2]
+    
+    return out
+
+
+
 
 #ybar relative to very bottom of cross-section
 #to find ybar relative

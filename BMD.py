@@ -63,7 +63,7 @@ def bmd(pos):
     
     return out
 
-def envelope():
+def BME():
     env = bmd(0)
     for i in range(0, 1251 + 856, 10):
         #print ("WORKING")
@@ -71,6 +71,14 @@ def envelope():
         env = [m if abs(m) > abs(e) else e for m, e in zip(env, bmdd)]
         #env = maxl(env, bmdd)
     print ("DONE")
+    return env
+
+def SFE():
+    env = sfd(find_reactions(0))
+    for i in range(0, 1251 + 856, 10):
+        sfdd = sfd(find_reactions(i))
+        env = [m if abs(m) > abs(e) else e for m, e, in zip(env, sfdd)]
+    
     return env
 
 def maxl(a, b):
@@ -89,7 +97,8 @@ if __name__ == "__main__":
     SFD = sfd(R)
     BMD = bmd(1028)
 
-    ENV = envelope()
+    ENV_BMD = BME()
+    ENV_SFD = SFE()
 
 #for i in range(len(BMD)):
 #    print (i, BMD[i])
@@ -101,6 +110,6 @@ if __name__ == "__main__":
 
     with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
         for i in range(len(BMD)):
-            file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV[i]) + " \n")
+            file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV_SFD[i]) + " " + str(ENV_BMD[i]) + " \n")
 
 

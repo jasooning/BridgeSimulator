@@ -15,6 +15,19 @@ if __name__ == "__main__":
     yb = CrossSection.ybar_bot(rects)
     yt = CrossSection.ybar_top(rects)
 
+    #sigma = M * y / I
+    # M and y known, solve for I
+    #I = M * y / sigma
+
+    #I / y = M / sigma
+
+    # thus two equations, three unknowns
+
+    #I / yb = M / sigmaT
+    #I / yt = M / sigmaC
+    #solve for I, yb, yt
+    #additionally, koooooooooooyyyyyyyyyyyyyyyyy
+
     Mmax = max(ENV)
 
     #tension on bottom
