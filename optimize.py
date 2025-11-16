@@ -81,8 +81,8 @@ def plate_buckling(rects, ybar):
     #split horizontal rects into sections
     done = False
     #create deep copy of list
-    h_split = copy.deepcopy(h_rects)
-    done = False
+
+    h_split = []
 
     for h in h_rects:
         h_split.extend(CrossSection.cleave(h, v_rects))
@@ -110,8 +110,8 @@ def plate_buckling(rects, ybar):
             wider_left = [h[0] - 0.5, h[1], h[2] + 1, h[3]]
             wider_right = [h[0] + 0.5, h[1], h[2] + 1, h[3]]
 
-            intersect_left = not (CrossSection.intersect(wider_left, real) == h)
-            intersect_right = not (CrossSection.intersect(wider_right, real) == h)
+            intersect_left = not rect_equal(CrossSection.intersect(wider_left, real), h, 1e-9)
+            intersect_right = not rect_equal(CrossSection.intersect(wider_right, real), h, 1e-9)
 
             type_dict[tuple(h)] = (1 if (intersect_left and intersect_right) else 2)
     
@@ -139,6 +139,8 @@ def plate_buckling(rects, ybar):
     min3 = float("inf")
     min4 = float("inf")
 
+    print_dict(type_dict)
+
     for i in type_dict.items():
         if (i[1] == 1):
             min1 = min(min1, 4 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2)
@@ -159,6 +161,13 @@ def plate_buckling(rects, ybar):
         "TYPE 3 PLATE BUCKLING" : sigma_C / min3,
         "TYPE 4 PLATE BUCKLING" : sigma_C / min4
     }
+
+def rect_equal(a, b, eps=1e-9):
+    """
+    Compare two rectangles [x, y, w, h] for equality using a tolerance.
+    Returns True if all corresponding values are within eps.
+    """
+    return all(abs(ai - bi) < eps for ai, bi in zip(a, b))
 
 def print_dict(dict):
     for i in dict.items():

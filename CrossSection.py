@@ -163,9 +163,8 @@ def ybar_bot(rects):
     return YBAR - min([a[1] - a[3] / 2 for a in rects])
 
 def ybar_top(rects):
-    yb = ybar_bot(rects)
-    h = max([a[1] + a[3] / 2 for a in rects]) - min([a[1] - a[3] / 2 for a in rects])
-    return h - yb
+    YBAR = ybar(rects)
+    return max([a[1] + a[3] / 2 for a in rects]) - YBAR
 
 def get_rects():
     file = load_file("/Users/gregoryparamonau/Desktop/BRIDGE/BridgeSimulator/test_shape.txt")
