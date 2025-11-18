@@ -2,8 +2,9 @@ import numpy
 from pylab import loadtxt
 
 # masses of m1 = wagons, m2 = locomotive
-m1 = 135
-m2 = 182
+m1 = 504 # locomotive
+m2 = 332 # first car
+m3 = 365 # last car
 #spacing constants between applied loads (as given from front of train) [offsets]
 spacing = [0, -176, -340, -516, -680, -856]
 
@@ -20,11 +21,14 @@ def find_reactions(pos):
     for i in range (len(spacing)):
         if not (0 <= pos + spacing[i] <= 1250): continue
         if (i < 2):
-            out[pos + spacing[i]] = - m2 / 2
-            #out.append((pos + spacing[i], m2 / 2))
-        else:
             out[pos + spacing[i]] = - m1 / 2
-            #out.append((pos + spacing[i], m1 / 2))
+            continue
+        elif (i < 4):
+            out[pos + spacing[i]] = - m2 / 2
+            continue
+        else :
+            out[pos + spacing[i]] = -m3 / 2
+            continue
 
     b = 0
     for i in out.keys():

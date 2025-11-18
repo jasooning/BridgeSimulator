@@ -113,7 +113,9 @@ def plate_buckling(rects, ybar, BMD):
             int_left = CrossSection.int_list(wider_left, taller)
             int_right = CrossSection.int_list(wider_right, taller)
 
-            type_dict[tuple(h)] = (1 if (int_left and int_right) else 2)
+            #if rectangle below centroid axis its in tension, hence needs to be filtered out not to mess with results
+            if (h[1] - h[3] / 2 > ybar) : 
+                type_dict[tuple(h)] = (1 if (int_left and int_right) else 2)
 
     bottom = [0, ybar - 1000, 1000, 1000 * 2]
 
