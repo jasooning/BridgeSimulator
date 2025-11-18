@@ -105,22 +105,49 @@ def inv_intersect(a, b):
     if ix2 < ax2:
         w = ax2 - ix2
         cy = (max(ay1, iy1) + min(ay2, iy2)) / 2
-        h = min(ay2, iy2) - max(ay1, ay1)
         h = min(ay2, iy2) - max(ay1, iy1)
         if h > 0:
             pieces.append([(ix2 + ax2)/2, cy, w, h])
 
     return pieces
 
+def intersects(a, b): 
+    return abs(a[0]-b[0]) < (a[2]+b[2])/2 and abs(a[1]-b[1]) < (a[3]+b[3])/2
+
+def int_list(a, b_list):
+    for i in b_list:
+        if intersects(a, i): return True
+    return False
+
+def make_taller(b_list):
+    out = []
+    for i in b_list: out.append([i[0], i[1], i[2], i[3] + 100])
+
+    return out
+
 
 # cleave rectangle a by an array of rectangles b
 def cleave(a, b_list):
     pieces = [a]
-    for cutter in b_list:
-        new_pieces = []
-        for p in pieces:
-            new_pieces.extend(inv_intersect(p, cutter))
-        pieces = new_pieces
+    count = 0
+    reset = False
+    while (count < len(pieces)):
+        reset = False
+        for cutter in b_list:
+            if (not intersects(pieces[count], cutter)): continue
+            else:
+                cut = inv_intersect(pieces[count], cutter)
+
+                if cut == [pieces[count]]: 
+                    reset = False
+                else:
+                    pieces[count : count + 1] = cut
+
+                    reset = True
+                    break
+        if reset : count = 0
+        else : count += 1
+
     return pieces
 
 #gives Q (first moment of area) of the cross section (rects) at the centroidal axis (ybar) measured from bottom
