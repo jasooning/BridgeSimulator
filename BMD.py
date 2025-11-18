@@ -91,9 +91,6 @@ def maxl(a, b):
         out.append(max(a[i], b[i]))
     return out
 
-def print_hi():
-    print("HI")
-
 if __name__ == "__main__":
 
 

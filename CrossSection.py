@@ -121,8 +121,13 @@ def int_list(a, b_list):
 
 def make_taller(b_list):
     out = []
-    for i in b_list: out.append([i[0], i[1], i[2], i[3] + 100])
+    for i in b_list: out.append([i[0], i[1], i[2], i[3] + 500])
 
+    return out
+
+def make_wider(b_list):
+    out = []
+    for i in b_list: out.append([i[0], i[1], i[2] + 500, i[3]])
     return out
 
 
