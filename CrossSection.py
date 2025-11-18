@@ -194,7 +194,7 @@ def ybar_top(rects):
     return max([a[1] + a[3] / 2 for a in rects]) - YBAR
 
 def get_rects():
-    file = load_file("/Users/gregoryparamonau/Desktop/BRIDGE/BridgeSimulator/test_shape.txt")
+    file = load_file("./test_shape.txt")
 
     rects = []
 
