@@ -28,7 +28,7 @@ sigma_T = 30
 E = 4000
 mu = 0.2
 
-#first function, test BMD & find max and min values
+#function returns FOS's of all possible flexural stresses along the bridge [assumes constant crosssection] [TODO]
 def flex_stress(BMD, I, y_top, y_bot):
     global sigma_C, sigma_T
 
@@ -54,6 +54,8 @@ def flex_stress(BMD, I, y_top, y_bot):
         "Max Compression at Bottom" : fos_c_bot
     }
 
+#function that calculates maximum shear stress applied to material [assumes constant cross-section so far] TODO
+#returns FOS's for both shear-stress failure and shear-glue failure [TODO]
 def shear_stress(SFE, Q, I, b):
 
     global tau_max, tau_glue
@@ -70,6 +72,9 @@ def shear_stress(SFE, Q, I, b):
         "Glue Shear Stress" : 0 # TODO
     }
 
+#function that splits crosssection into different plate-buckling cases
+#then calculates all minimum FOS's for each plate buckling case
+
 def plate_buckling(rects, ybar, BMD):
     global E, mu, sigma_C, diaphragm_spacing
 
@@ -81,16 +86,16 @@ def plate_buckling(rects, ybar, BMD):
         if (i[2] > i[3]): h_rects.append(i)
         else: v_rects.append(i)
 
-    #split horizontal rects into sections
-    done = False
-    #create deep copy of list
-
     h_split = []
     taller = CrossSection.make_taller(v_rects)
+
+    #create an array of 'taller' vertical rectangles, which are used to 'cleave' the horizontal rects s.t.
+    #they can be classified according to the plate buckling cases
 
     for h in h_rects:
         h_split.extend(CrossSection.cleave(h, taller))
 
+    #handles sorting case 1 & 2 plate buckling
     type_dict = {}
     for h in h_split:
         for real in h_rects:
@@ -98,9 +103,9 @@ def plate_buckling(rects, ybar, BMD):
             temp_int = CrossSection.intersect(h, real)
             if (temp_int[2] == 0 and temp_int[3] == 0): continue
 
-            #inv_intersect h[expand by 1] with real
-            #if nothing left (ie only rect = none) then type 1
-            #if a bit left () -> type 2
+            #create two rects, one shifted slightly left, one shifted slightly right
+            #if both of these intersect an extended vertical, then the rectangle is case-1 plate buckling
+            #if only one of these intersects, then rectangle is case-2 plate buckling
 
             wider_left = [h[0] - 0.6, h[1], h[2] + 1, h[3]]
             wider_right = [h[0] + 0.6, h[1], h[2] + 1, h[3]]
@@ -109,34 +114,35 @@ def plate_buckling(rects, ybar, BMD):
             int_right = CrossSection.int_list(wider_right, taller)
 
             type_dict[tuple(h)] = (1 if (int_left and int_right) else 2)
-    
-    #find case 3:
-    #only consider case where compression on top
-    #take exclusive_or of vertical ones and 'bottom rect'
 
     bottom = [0, ybar - 1000, 1000, 1000 * 2]
 
+    #v-split = every vertical with the bottom part (tension) removed
+    #case-3 plate buckling
     v_split = []
     for i in v_rects:
         v_split.extend(CrossSection.inv_intersect(i, bottom))
 
+    #create case-3 rects
     for v in v_split:
         type_dict[tuple(v)] = 3
-    
+
+    #all vertical rects are subject to case-4 shear buckling, hence those are lumped together
     for v in v_rects:
         type_dict[tuple(v)] = 4
 
     
     #now do math for every type
-
+    #originally begin with 'infinity' FOS, and go down to minimum check
     min1 = float("inf")
     min2 = float("inf")
     min3 = float("inf")
     min4 = float("inf")
 
+    #making sure that the dictionary of rects & types is valid
     print_dict(type_dict)
 
-    # find the smallest diaphragm spacing
+    #find maximum moment in BMD -> used for calculating FOS for case 1-3 plate buckling
     BMD_max = max(BMD, key = abs)
 
     for i in type_dict.items():
@@ -147,21 +153,18 @@ def plate_buckling(rects, ybar, BMD):
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
             min1 = min(min1, M_min / BMD_max)
 
-            #min1 = min(min1, 4 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2)
         elif (i[1] == 2):
             sigma_crit = 0.425 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
             min2 = min(min2, M_min / BMD_max)
 
-            #min2 = min(min2, 0.425 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2)
         elif (i[1] == 3):
             sigma_crit = 6 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][2] / i[0][3]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
             min3 = min(min3, M_min / BMD_max)
 
-            #min3 = min(min3, 6 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][2] / i[0][3]) ** 2)
         elif (i[1] == 4):
             #check entire length of bridge w all diaphragms for maximum Pcrit & any failure caused by Pcrit (TODO)
             #min4 = FOS
@@ -180,27 +183,25 @@ def plate_buckling(rects, ybar, BMD):
 
                 min4 = min(min4, M_min / M_actual)
 
-
-                #min4 = min(min4, 5 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2))
-            #need diaphragm spacing here : TODO
-            pass
-
-    #find case-1s
-    #2-sides restrained on cross-section (horizontally)
-
     return {
         "TYPE 1 PLATE BUCKLING" : min1, 
         "TYPE 2 PLATE BUCKLING" : min2, 
         "TYPE 3 PLATE BUCKLING" : min3, 
-        "TYPE 4 PLATE BUCKLING" : min4 #sigma_C / min4
+        "TYPE 4 PLATE BUCKLING" : min4
     }
 
-def rect_equal(a, b, eps=1e-9):
+#print dictionary in readable format
+def print_FOS(fos_dict):
     """
-    Compare two rectangles [x, y, w, h] for equality using a tolerance.
-    Returns True if all corresponding values are within eps.
+    Print a dictionary of FOS values in aligned columns.
     """
-    return all(abs(ai - bi) < eps for ai, bi in zip(a, b))
+    # Determine the longest key
+    max_key_len = max(len(str(k)) for k in fos_dict)
+    
+    for k, v in fos_dict.items():
+        # Left-align key, left-align value (with 6 decimal places)
+        print(f"{k.ljust(max_key_len)} : {v:<12.6f}")
+
 
 def print_dict(dict):
     for i in dict.items():
@@ -229,12 +230,12 @@ if __name__ == "__main__":
     b = CrossSection.width_at_centroid(rects, ybar)
 
     #flexural stresses
-    FOS_flex = flex_stress(BMD_ENV, I, y_top, y_bot)
-    FOS_shear = shear_stress(SFD_ENV, Q, I, b)
-    FOS_plate_buckling = plate_buckling(rects, ybar, BMD_ENV)
+    FOS = flex_stress(BMD_ENV, I, y_top, y_bot)
+    FOS = FOS | shear_stress(SFD_ENV, Q, I, b)
+    FOS = FOS | plate_buckling(rects, ybar, BMD_ENV)
 
-    print_dict(FOS_flex)
-    print_dict(FOS_shear)
-    print_dict(FOS_plate_buckling)
+    FOS = dict(sorted(FOS.items(), key = lambda item: item[1]))
+    print()
+    print_FOS (FOS)
     #print (FOS_flex, FOS_shear, FOS_plate_buckling)
 
