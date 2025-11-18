@@ -1,12 +1,13 @@
 # shape_editor_v3.py
 # unified composite/shape hierarchy + grid + delete buttons + export
 import sys
+import copy
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QPushButton, QFileDialog, QLabel, QMessageBox, QTreeWidget, QTreeWidgetItem,
-    QInputDialog, QMenu
+    QInputDialog, QMenu, QAction
 )
-from PyQt5.QtGui import QPainter, QPen, QColor
+from PyQt5.QtGui import QPainter, QPen, QColor, QKeySequence
 from PyQt5.QtCore import Qt, QPoint, QRectF, pyqtSignal
 import math
 
@@ -16,6 +17,7 @@ PX_PER_MM = 50.0
 LINE_PIXEL_WIDTH = 4  # pen width in device pixels
 VERTEX_RADIUS_PX = 4  # vertex marker radius in device pixels
 BTN_SIZE = 18
+UNDO_LIMIT = 100
 
 class LineSeg:
     def __init__(self, a: QPoint, b: QPoint):
@@ -37,6 +39,7 @@ class GlueTab:
 
 class GridWidget(QWidget):
     shapes_changed = pyqtSignal()
+    history_changed = pyqtSignal()
     def __init__(self):
         super().__init__()
         self.shapes: dict[str, ShapeObj] = {}
@@ -59,9 +62,54 @@ class GridWidget(QWidget):
         self.panning = False
         self.pan_start_dev = None
         self.pan_start_off = (0.0, 0.0)
+        # drag mode state
+        self.drag_mode = False
+        self.dragging_segment = None
+        self.drag_start_pos = None
         self._auto_fitted = False
         self.hover_target = None  # tuple (owner_type, owner, seg) when mouse hovers near a segment
         self.setMouseTracking(True)
+        # Undo/Redo stacks
+        self.undo_stack = []
+        self.redo_stack = []
+
+    def save_state(self):
+        """Saves a deep copy of the current shapes and glue tabs to the undo stack."""
+        state = (copy.deepcopy(self.shapes), copy.deepcopy(self.glue_tabs))
+        self.undo_stack.append(state)
+        if len(self.undo_stack) > UNDO_LIMIT:
+            self.undo_stack.pop(0)
+        # A new action clears the redo stack
+        self.redo_stack.clear()
+        self.history_changed.emit()
+
+    def undo(self):
+        """Restores the previous state from the undo stack."""
+        if not self.undo_stack:
+            return
+        # Save current state to redo stack
+        current_state = (copy.deepcopy(self.shapes), copy.deepcopy(self.glue_tabs))
+        self.redo_stack.append(current_state)
+        # Restore previous state
+        last_state = self.undo_stack.pop()
+        self.shapes, self.glue_tabs = last_state
+        self.shapes_changed.emit()
+        self.history_changed.emit()
+        self.update()
+
+    def redo(self):
+        """Restores a future state from the redo stack."""
+        if not self.redo_stack:
+            return
+        # Save current state to undo stack
+        current_state = (copy.deepcopy(self.shapes), copy.deepcopy(self.glue_tabs))
+        self.undo_stack.append(current_state)
+        # Restore next state
+        next_state = self.redo_stack.pop()
+        self.shapes, self.glue_tabs = next_state
+        self.shapes_changed.emit()
+        self.history_changed.emit()
+        self.update()
 
     def to_world(self, p: QPoint) -> QPoint:
         """Convert device/widget coordinates to world coordinates (unscaled).
@@ -170,14 +218,25 @@ class GridWidget(QWidget):
         if ev.button() == Qt.LeftButton:
             pt_dev = ev.pos()
             pt = self.to_world(pt_dev)
-            if ev.modifiers() & Qt.ShiftModifier:
-                self.delete_nearest_segment(ev.pos()); return
-            # If pan_mode is active, start panning with left button
+
+            # --- Mode-specific handlers ---
+            if self.drag_mode:
+                stype, owner, sobj = self.find_nearest_segment_dev(ev.pos())
+                if stype:
+                    self.save_state()  # Save state before starting a drag
+                    self.dragging_segment = sobj
+                    self.drag_start_pos = self.to_world(ev.pos())
+                return
             if getattr(self, 'pan_mode', False):
                 self.panning = True
                 self.pan_start_dev = ev.pos()
                 self.pan_start_off = (self.offset_x, self.offset_y)
                 return
+
+            if ev.modifiers() & Qt.ShiftModifier:
+                self.delete_nearest_segment(ev.pos()); return
+            
+            # --- Default drawing/interaction handlers ---
             # If clicked near an existing vertex, start dragging from that vertex
             v = self.find_nearest_vertex(pt, thresh=6)
             if v:
@@ -228,6 +287,15 @@ class GridWidget(QWidget):
             self.pan_start_off = (self.offset_x, self.offset_y)
 
     def mouseMoveEvent(self, ev):
+        if self.dragging_segment and self.drag_start_pos:
+            current_pos = self.to_world(ev.pos())
+            delta = current_pos - self.drag_start_pos
+            self.dragging_segment.a += delta
+            self.dragging_segment.b += delta
+            self.drag_start_pos = current_pos
+            self.update()
+            return
+
         if self.panning and self.pan_start_dev is not None:
             # compute device delta and update offset (world units)
             dx = ev.pos().x() - self.pan_start_dev.x()
@@ -250,6 +318,13 @@ class GridWidget(QWidget):
             self.update()
 
     def mouseReleaseEvent(self, ev):
+        if self.dragging_segment:
+            self.dragging_segment = None
+            self.drag_start_pos = None
+            self.shapes_changed.emit() # Update sidebar with new segment info if needed
+            self.update()
+            return
+
         # If left button released while panning (Pan Mode), stop panning
         if ev.button() == Qt.LeftButton and self.panning:
             self.panning = False
@@ -272,6 +347,7 @@ class GridWidget(QWidget):
                 _, _, _, vpt = v
                 end = QPoint(vpt.x(), vpt.y())
             if end != self.drag_start:
+                self.save_state()  # Save state before making a change
                 if self.current_mode == 'shape' and self.selected_shape:
                     shp = self.shapes.get(self.selected_shape)
                     if shp:
@@ -304,6 +380,7 @@ class GridWidget(QWidget):
                 if d < best_d: best_d, best, owner, owner_type = d, glue, gid, 'glue'
         # threshold in world pixels (approx)
         if best and best_d < 12:
+            self.save_state()  # Save state before making a change
             if owner_type == 'shape':
                 self.shapes[owner].lines = [s for s in self.shapes[owner].lines if s.id != best.id]
                 self.shapes_changed.emit()
@@ -453,6 +530,7 @@ class GridWidget(QWidget):
 
     def delete_glue_by_id(self, gid: int):
         if gid in self.glue_tabs:
+            self.save_state()
             del self.glue_tabs[gid]
             try:
                 self.shapes_changed.emit()
@@ -468,6 +546,7 @@ class GridWidget(QWidget):
     def delete_segment_by_id(self, seg_id: int):
         name, seg = self.find_segment_by_id(seg_id)
         if name and seg:
+            self.save_state()
             self.shapes[name].lines = [s for s in self.shapes[name].lines if s.id != seg_id]
             self.shapes_changed.emit()
             self.update()
@@ -480,7 +559,9 @@ class GridWidget(QWidget):
 
     def _del_seg(self, seg, shape_name):
         shp = self.shapes.get(shape_name)
-        if shp: shp.lines = [s for s in shp.lines if s.id != seg.id]
+        if shp:
+            self.save_state()
+            shp.lines = [s for s in shp.lines if s.id != seg.id]
         try:
             self.shapes_changed.emit()
         except Exception:
@@ -489,6 +570,7 @@ class GridWidget(QWidget):
 
     def _del_glue(self, gid):
         if gid in self.glue_tabs:
+            self.save_state()
             g = self.glue_tabs.pop(gid)
             try:
                 self.shapes_changed.emit()
@@ -518,6 +600,8 @@ class GridWidget(QWidget):
         val, ok = QInputDialog.getDouble(self, "Set length", "Length (mm):", cur_mm, 0.0, 100000.0, 3)
         if not ok:
             return
+        
+        self.save_state() # Save state before applying the change
         new_mm = val
 
         dx = b.x() - a.x(); dy = b.y() - a.y()
@@ -534,8 +618,12 @@ class GridWidget(QWidget):
         if owner_type == 'shape':
             seg.b = new_pt
         else:
-            g.a = a; g.b = new_pt
+            # Since g might have been fetched from the dictionary, ensure we modify the instance in the dictionary
+            g_to_modify = self.glue_tabs.get(owner)
+            if g_to_modify:
+                g_to_modify.b = new_pt
         self.update()
+        self.shapes_changed.emit()
 
     # --- Zoom / view control methods ---
     def set_scale(self, scale: float):
@@ -566,6 +654,7 @@ class Sidebar(QWidget):
         # Rebuild the tree when shapes change in the grid
         try:
             self.grid.shapes_changed.connect(self.rebuild_tree)
+            self.grid.history_changed.connect(self.update_history_buttons)
         except Exception:
             pass
         self.layout.addWidget(self.tree)
@@ -575,6 +664,12 @@ class Sidebar(QWidget):
         nd = QPushButton("Delete"); nd.clicked.connect(self.delete_selected); btns.addWidget(nd)
         self.layout.addLayout(btns)
 
+        # Undo / Redo Buttons
+        history_btns = QHBoxLayout()
+        self.undo_btn = QPushButton("Undo"); self.undo_btn.clicked.connect(self.grid.undo); history_btns.addWidget(self.undo_btn)
+        self.redo_btn = QPushButton("Redo"); self.redo_btn.clicked.connect(self.grid.redo); history_btns.addWidget(self.redo_btn)
+        self.layout.addLayout(history_btns)
+
     # (segment operations removed; use click-on-segment popup/menu instead)
 
         self.layout.addWidget(QLabel("Glue Tabs"))
@@ -583,32 +678,65 @@ class Sidebar(QWidget):
         gd = QPushButton("Delete Glue"); gd.clicked.connect(self.delete_glue); gbtns.addWidget(gd)
         self.layout.addLayout(gbtns)
 
-        # Zoom mode: when toggled, mouse wheel / trackpad will zoom around cursor
+        # --- View Control Modes ---
+        self.layout.addWidget(QLabel("View Controls"))
+        
+        # Zoom mode
         zbtns = QHBoxLayout()
-        zmode = QPushButton("Zoom Mode")
-        zmode.setCheckable(True)
-        zmode.toggled.connect(lambda v: self.grid.set_zoom_mode(v))
-        zbtns.addWidget(zmode)
-        zinstruct = QLabel("(use two-finger scroll or mouse wheel when Zoom Mode is on)")
+        self.zmode_btn = QPushButton("Zoom Mode")
+        self.zmode_btn.setCheckable(True)
+        self.zmode_btn.toggled.connect(lambda v: self.grid.set_zoom_mode(v))
+        zbtns.addWidget(self.zmode_btn)
+        zinstruct = QLabel("(scroll wheel)")
         zbtns.addWidget(zinstruct)
         self.layout.addLayout(zbtns)
 
-        # Pan mode toggle: when on, left-drag will pan the view instead of drawing
+        # Pan mode
         pbtns = QHBoxLayout()
-        pmode = QPushButton("Pan Mode")
-        pmode.setCheckable(True)
-        pmode.toggled.connect(lambda v: setattr(self.grid, 'pan_mode', bool(v)))
-        pbtns.addWidget(pmode)
-        pinstruct = QLabel("(left-drag to pan when Pan Mode is on)")
+        self.pmode_btn = QPushButton("Pan Mode")
+        self.pmode_btn.setCheckable(True)
+        self.pmode_btn.toggled.connect(self.toggle_pan_mode)
+        pbtns.addWidget(self.pmode_btn)
+        pinstruct = QLabel("(left-drag to pan)")
         pbtns.addWidget(pinstruct)
         self.layout.addLayout(pbtns)
+        
+        # Drag mode
+        dbtns = QHBoxLayout()
+        self.dmode_btn = QPushButton("Drag Mode")
+        self.dmode_btn.setCheckable(True)
+        self.dmode_btn.toggled.connect(self.toggle_drag_mode)
+        dbtns.addWidget(self.dmode_btn)
+        dinstruct = QLabel("(left-drag to move segments)")
+        dbtns.addWidget(dinstruct)
+        self.layout.addLayout(dbtns)
 
         exp = QPushButton("Export TXT"); exp.clicked.connect(self.export_txt); self.layout.addWidget(exp)
         self.layout.addStretch()
 
         self.current_glue = None
+        self.update_history_buttons()
+
+    def toggle_pan_mode(self, checked):
+        """Activates pan mode and deactivates drag mode."""
+        self.grid.pan_mode = checked
+        if checked and self.dmode_btn.isChecked():
+            self.dmode_btn.setChecked(False)
+    
+    def toggle_drag_mode(self, checked):
+        """Activates drag mode and deactivates pan mode."""
+        self.grid.drag_mode = checked
+        if checked and self.pmode_btn.isChecked():
+            self.pmode_btn.setChecked(False)
+
+    def update_history_buttons(self):
+        """Enables/disables undo/redo buttons based on stack state."""
+        self.undo_btn.setEnabled(bool(self.grid.undo_stack))
+        self.redo_btn.setEnabled(bool(self.grid.redo_stack))
+
 
     def new_shape(self):
+        self.grid.save_state()
         name = f"Shape_{len(self.grid.shapes)+1}"
         color = QColor.fromHsv((len(self.grid.shapes)*37)%360,180,200)
         shp = ShapeObj(name, color)
@@ -665,6 +793,7 @@ class Sidebar(QWidget):
         if not item: return
         name = item.text(0)
         if name in self.grid.shapes:
+            self.grid.save_state()
             shp = self.grid.shapes.pop(name)
         idx = self.tree.indexOfTopLevelItem(item)
         if idx >= 0: self.tree.takeTopLevelItem(idx)
@@ -675,6 +804,7 @@ class Sidebar(QWidget):
             pass
 
     def new_glue(self):
+        self.grid.save_state()
         g = GlueTab()
         self.grid.glue_tabs[g.id] = g
         self.current_glue = g.id
@@ -686,6 +816,7 @@ class Sidebar(QWidget):
     def delete_glue(self):
         gid = self.grid.selected_glue_id or self.current_glue
         if gid and gid in self.grid.glue_tabs:
+            self.grid.save_state()
             g = self.grid.glue_tabs.pop(gid)
         self.grid.selected_glue_id = None
         self.grid.update()
@@ -771,6 +902,33 @@ class MainWindow(QMainWindow):
         central = QWidget(); lay = QHBoxLayout(central)
         lay.addWidget(self.sidebar, 2); lay.addWidget(self.grid, 6)
         self.setCentralWidget(central)
+        self.create_menus()
+
+    def create_menus(self):
+        """Creates the main menu bar with an Edit menu for Undo/Redo."""
+        menu_bar = self.menuBar()
+        edit_menu = menu_bar.addMenu("&Edit")
+
+        undo_action = QAction("&Undo", self)
+        undo_action.setShortcut(QKeySequence.Undo)  # Ctrl+Z
+        undo_action.triggered.connect(self.grid.undo)
+        edit_menu.addAction(undo_action)
+
+        redo_action = QAction("&Redo", self)
+        redo_action.setShortcut(QKeySequence.Redo)  # Ctrl+Y or Ctrl+Shift+Z
+        redo_action.triggered.connect(self.grid.redo)
+        edit_menu.addAction(redo_action)
+
+        # Connect the grid's history signal to update menu item state
+        self.grid.history_changed.connect(
+            lambda: undo_action.setEnabled(bool(self.grid.undo_stack))
+        )
+        self.grid.history_changed.connect(
+            lambda: redo_action.setEnabled(bool(self.grid.redo_stack))
+        )
+        # Set initial state
+        undo_action.setEnabled(False)
+        redo_action.setEnabled(False)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
