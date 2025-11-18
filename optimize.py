@@ -17,6 +17,9 @@ import numpy
 #case 1, 2, 3 of plate buckling + shear buckling
 
 #constants: #MPa
+# define here, I'm placing them at increments of 100 to start with
+diaphragm_spacing = [25, 125, 225, 325, 425, 525, 625, 725, 825, 925, 1025, 1125, 1225]
+
 tau_max = 4
 tau_glue = 2
 sigma_C = 6
@@ -67,8 +70,8 @@ def shear_stress(SFE, Q, I, b):
         "Glue Shear Stress" : 0 # TODO
     }
 
-def plate_buckling(rects, ybar):
-    global E, mu, sigma_C
+def plate_buckling(rects, ybar, SFD):
+    global E, mu, sigma_C, diaphragm_spacing
 
     h_rects = []
     v_rects = []
@@ -86,21 +89,7 @@ def plate_buckling(rects, ybar):
 
     for h in h_rects:
         h_split.extend(CrossSection.cleave(h, v_rects))
-    '''
-    h_split = copy.deepcopy(h_rects)
-    while(not done):
-        print("loop 1")
-        temp = []
-        done = True
-        for h in h_split:
-            for v in v_rects:
-                sec = CrossSection.intersect(h, v)
-                if (sec[2] > 0 and sec[3] > 0):
-                    temp.extend(CrossSection.inv_intersect(h, v))
-                    done = False
-        
-        h_split = copy.deepcopy(temp)
-    '''
+
     type_dict = {}
     for h in h_split:
         for real in h_rects:
@@ -141,6 +130,9 @@ def plate_buckling(rects, ybar):
 
     print_dict(type_dict)
 
+    # find the smallest diaphragm spacing
+
+
     for i in type_dict.items():
         if (i[1] == 1):
             min1 = min(min1, 4 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2)
@@ -149,6 +141,11 @@ def plate_buckling(rects, ybar):
         elif (i[1] == 3):
             min3 = min(min3, 6 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][2] / i[0][3]) ** 2)
         elif (i[1] == 4):
+            #check entire length of bridge w all diaphragms for maximum Pcrit & any failure caused by Pcrit (TODO)
+            for j in range(1, len(diaphragm_spacing)):
+                a = diaphragm_spacing[j] - diaphragm_spacing[j - 1]
+                maxV = max(SFD[diaphragm_spacing[j]], SFD[diaphragm_spacing[j - 1]]) # need this for proper FOS calculations using Pcrit
+                min4 = min(min4, 5 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2))
             #need diaphragm spacing here : TODO
             pass
 
@@ -198,7 +195,7 @@ if __name__ == "__main__":
     #flexural stresses
     FOS_flex = flex_stress(BMD_ENV, I, y_top, y_bot)
     FOS_shear = shear_stress(SFD_ENV, Q, I, b)
-    FOS_plate_buckling = plate_buckling(rects, ybar)
+    FOS_plate_buckling = plate_buckling(rects, ybar, SFD_ENV)
 
     print_dict(FOS_flex)
     print_dict(FOS_shear)
