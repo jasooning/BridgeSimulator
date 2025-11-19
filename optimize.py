@@ -51,11 +51,14 @@ def flex_stress(M, I, y_top, y_bot):
     fos_c_bot = sigma_C / (M * y_bot / I)
     fos_t_top = sigma_T / (M * y_top / I)
 
+    fos_c = max(abs(fos_c_top), abs(fos_c_bot))
+    fos_t = max(abs(fos_t_bot), abs(fos_t_top))
+
     #FOS: c_top, t_bot, c_bot, t_top
     #return dictionary
     return {
-        "Max Compression at Top" : abs(fos_c_top),
-        "Max Tension at Bottom" : abs(fos_t_bot),
+        "Max Compression" : fos_c,
+        "Max Tension" : fos_t,
     }
 
 #function that calculates maximum shear stress applied to material [assumes constant cross-section so far] TODO
