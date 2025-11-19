@@ -32,10 +32,8 @@ mu = 0.2
 def flex_stress(M, I, y_top, y_bot):
     if (M == 0):
         return {
-            "Max Tension at Top" : 0, 
             "Max Compression at Top" : 0,
             "Max Tension at Bottom" : 0,
-            "Max Compression at Bottom" : 0
         }
     global sigma_C, sigma_T
 
@@ -55,10 +53,8 @@ def flex_stress(M, I, y_top, y_bot):
     #FOS: c_top, t_bot, c_bot, t_top
     #return dictionary
     return {
-        "Max Tension at Top" : abs(fos_t_top), 
         "Max Compression at Top" : abs(fos_c_top),
         "Max Tension at Bottom" : abs(fos_t_bot),
-        "Max Compression at Bottom" : abs(fos_c_bot)
     }
 
 #function that calculates maximum shear stress applied to material [assumes constant cross-section so far] TODO
@@ -82,7 +78,7 @@ def shear_stress(V, Q, I, b):
 #function that splits crosssection into different plate-buckling cases
 #then calculates all minimum FOS's for each plate buckling case
 #returns FOS for the position on the bridge
-def plate_buckling(rects, ybar, M, I):
+def plate_buckling(rects, ybar, M, V, I, Q, b):
     if (M == 0) : 
         return {
             "TYPE 1 PLATE BUCKLING" : 0, 
@@ -199,11 +195,17 @@ def plate_buckling(rects, ybar, M, I):
 
                 a = diaphragm_spacing[j] - diaphragm_spacing[j - 1]
                 #M_actual = max(BMD[diaphragm_spacing[j]], BMD[diaphragm_spacing[j - 1]]) # need this for proper FOS calculations using Pcrit
-                sigma_crit = 5 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
+                tau = 5 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
 
-                M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
+                #tau = VQ / Ib
+                #V = tau * Ib / Q
+                #FOS = V / V_in
 
-                min4 = min(min4, M_min / M)
+                V_min = tau * I * b / Q
+
+                #M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
+
+                min4 = min(min4, V_min / V)
 
     return {
         "TYPE 1 PLATE BUCKLING" : abs(min1), 
@@ -227,7 +229,7 @@ def FOS_whole_bridge(SFD_ENV, BMD_ENV, rects):
     for i in range(1250):
         FOS = flex_stress(BMD_ENV[i], I, y_top, y_bot)
         FOS = FOS | shear_stress(SFD_ENV[i], Q, I, b)
-        FOS = FOS | plate_buckling(rects, ybar, BMD_ENV[i], I)
+        FOS = FOS | plate_buckling(rects, ybar, BMD_ENV[i], abs(SFD_ENV[i]), I, Q, b)
 
         #print (FOS)
         if (i == 0):
