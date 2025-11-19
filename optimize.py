@@ -233,7 +233,7 @@ def FOS_whole_bridge(SFD_ENV, BMD_ENV, rects):
 
         #print (FOS)
         if (i == 0):
-            out.append(to_string(FOS.keys(), i))
+            out.append(to_string(FOS.keys(), -1))
 
         out.append(to_string(FOS.values(), i))
     
@@ -243,6 +243,8 @@ def FOS_whole_bridge(SFD_ENV, BMD_ENV, rects):
 #print dictionary in readable format
 def to_string(list, pos):
     out = str(pos) + ","
+    if pos == -1:
+        out = "Position (mm),"
     for i in list:
         out = out + str(i) + ","
     return out
