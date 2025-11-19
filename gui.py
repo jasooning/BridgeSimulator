@@ -29,6 +29,10 @@ from PyQt6.QtGui import QPolygonF, QPen, QBrush, QColor, QTransform, QPainter, Q
 from PyQt6.QtCore import Qt, QPointF, QEvent
 import numpy as np
 
+import json
+import tkinter as tk
+from tkinter import filedialog
+
 # ---------- Geometry utilities ----------
 def polygon_area_centroid_moments(points):
     """Compute area, centroid (cx, cy), and second moments (Ixx, Iyy, Ixy) for a polygon."""
