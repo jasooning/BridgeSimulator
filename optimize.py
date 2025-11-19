@@ -18,7 +18,9 @@ import numpy
 
 #constants: #MPa
 # define here, I'm placing them at increments of 100 to start with
-diaphragm_spacing = [25, 125, 225, 325, 425, 525, 625, 725, 825, 925, 1025, 1125, 1225]
+
+#diaphragm_spacing = [20, 30, 230, 625, 1020, 1220, 1230]
+diaphragm_spacing = [25, 1225]
 
 tau_max = 4
 tau_glue = 2
@@ -78,7 +80,7 @@ def shear_stress(V, Q, I, b):
 #function that splits crosssection into different plate-buckling cases
 #then calculates all minimum FOS's for each plate buckling case
 #returns FOS for the position on the bridge
-def plate_buckling(rects, ybar, M, V, I, Q, b):
+def plate_buckling(rects, ybar, M, V, I, Q, b, pos):
     if (M == 0) : 
         return {
             "TYPE 1 PLATE BUCKLING" : 0, 
@@ -167,18 +169,18 @@ def plate_buckling(rects, ybar, M, V, I, Q, b):
         if (i[1] == 1):
             #M = sigma_crit * I / y_max
             #FOS = M_min / M_actual
-            sigma_crit = 4 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2
+            sigma_crit = 4 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][3] / i[0][2]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
             min1 = min(min1, M_min / M)
 
         elif (i[1] == 2):
-            sigma_crit = 0.425 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2
+            sigma_crit = 0.425 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][3] / i[0][2]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
             min2 = min(min2, M_min / M)
 
         elif (i[1] == 3):
-            sigma_crit = 6 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][2] / i[0][3]) ** 2
+            sigma_crit = 6 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][2] / i[0][3]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
             min3 = min(min3, M_min / M)
@@ -187,6 +189,7 @@ def plate_buckling(rects, ybar, M, V, I, Q, b):
             #check entire length of bridge w all diaphragms for maximum Pcrit & any failure caused by Pcrit (TODO)
             #min4 = FOS
             for j in range(1, len(diaphragm_spacing)):
+                if not (diaphragm_spacing[j - 1] < pos < diaphragm_spacing[j]): continue
                 #sigma_crit = My / I
                 #M = sigma_crit * I / y_max
 
@@ -195,7 +198,7 @@ def plate_buckling(rects, ybar, M, V, I, Q, b):
 
                 a = diaphragm_spacing[j] - diaphragm_spacing[j - 1]
                 #M_actual = max(BMD[diaphragm_spacing[j]], BMD[diaphragm_spacing[j - 1]]) # need this for proper FOS calculations using Pcrit
-                tau = 5 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
+                tau = 5 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
 
                 #tau = VQ / Ib
                 #V = tau * Ib / Q
@@ -229,11 +232,11 @@ def FOS_whole_bridge(SFD_ENV, BMD_ENV, rects):
     for i in range(1250):
         FOS = flex_stress(BMD_ENV[i], I, y_top, y_bot)
         FOS = FOS | shear_stress(SFD_ENV[i], Q, I, b)
-        FOS = FOS | plate_buckling(rects, ybar, BMD_ENV[i], abs(SFD_ENV[i]), I, Q, b)
+        FOS = FOS | plate_buckling(rects, ybar, BMD_ENV[i], abs(SFD_ENV[i]), I, Q, b, i)
 
         #print (FOS)
         if (i == 0):
-            out.append(to_string(FOS.keys(), i))
+            out.append(to_string(FOS.keys(), -1))
 
         out.append(to_string(FOS.values(), i))
     
@@ -243,6 +246,8 @@ def FOS_whole_bridge(SFD_ENV, BMD_ENV, rects):
 #print dictionary in readable format
 def to_string(list, pos):
     out = str(pos) + ","
+    if pos == -1:
+        out = "Position (mm),"
     for i in list:
         out = out + str(i) + ","
     return out
