@@ -82,9 +82,32 @@ def SFE():
     env = sfd(find_reactions(0))
     for i in range(0, 1251 + 856, 10):
         sfdd = sfd(find_reactions(i))
-        env = [m if abs(m) > abs(e) else e for m, e, in zip(env, sfdd)]
+        env = [abs(m) if abs(m) > abs(e) else e for m, e, in zip(env, sfdd)]
     
     return env
+
+def min_max(min, max, abss):
+    return [(abs(m) if abss else m) if abs(m) > abs(e) else abs(e) for m, e in zip(min, max)]
+
+def min_max_sfe():
+
+    min = sfd(find_reactions(0))
+    max = sfd(find_reactions(0))
+    for i in range(0, 1251 + 856, 10):
+        sfdd = sfd(find_reactions(i))
+        min = [m if m < e else e for m, e in zip(min, sfdd)]
+        max = [m if m > e else e for m, e in zip(max, sfdd)]
+    return min, max
+
+def min_max_bme():
+    min = bmd(0)
+    max = bmd(0)
+    for i in range(0, 1251 + 856, 10):
+        bmdd = bmd(i)
+        min = [m if m < e else e for m, e in zip(min, bmdd)]
+        max = [m if m > e else e for m, e in zip(max, bmdd)]
+    return min, max
+
 
 def maxl(a, b):
     out = []
@@ -92,10 +115,10 @@ def maxl(a, b):
         out.append(max(a[i], b[i]))
     return out
 
-def combine(ENV_SFD, ENV_BMD):
+def combine(MIN_SFD, MAX_SFD, ENV_SFD, MIN_BMD, MAX_BMD, ENV_BMD):
     out = []
     for i in range(len(ENV_SFD)):
-        out.append(str(i) + "," + str(ENV_SFD[i]) + "," + str(ENV_BMD[i]))
+        out.append(str(i) + "," + str(MIN_SFD[i]) + "," + str(MAX_SFD[i]) + "," + str(ENV_SFD[i]) + "," + str(MIN_BMD[i]) + "," + str(MAX_BMD[i]) + "," + str(ENV_BMD[i]))
     return out
 
 
@@ -106,11 +129,14 @@ if __name__ == "__main__":
     SFD = sfd(R)
     BMD = bmd(1028)
 
-    ENV_BMD = BME()
-    ENV_SFD = SFE()
+    MIN_SFD, MAX_SFD = min_max_sfe()
+    MIN_BMD, MAX_BMD = min_max_bme()
 
-    L = combine(ENV_SFD, ENV_BMD)
-    L.insert(0, "POSITION (mm),SFE (N),BME (N mm)")
+    ENV_BMD = min_max(MIN_BMD, MAX_BMD, False)
+    ENV_SFD = min_max(MIN_SFD, MAX_SFD, True)
+
+    L = combine(MIN_SFD, MAX_SFD, ENV_SFD, MIN_BMD, MAX_BMD, ENV_BMD)
+    L.insert(0, "POSITION (mm),MIN SFE (N),MAX SFE (N),SFE (N),MIN BME (N mm),MAX BME (N mm),BME (N mm)")
 
     del L[1], L[-1]
 

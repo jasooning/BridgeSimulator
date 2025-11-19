@@ -47,20 +47,24 @@ def plot(data_rows, plotting_fos):
         plt.axhline(y=1, color='red', linestyle='--', linewidth=1, label='FOS = 1')
     else:
         # Two-column special case: left/right axes
-        if len(y_series) != 2:
-            raise ValueError("For plotting_fos=False, there must be exactly 2 columns")
+        #if len(y_series) != 2:
+            #raise ValueError("For plotting_fos=False, there must be exactly 2 columns")
 
         fig, ax1 = plt.subplots(figsize=(12, 7))
 
         # Left axis
-        ax1.plot(x, y_series[0], color='tab:blue', label=y_labels[0])
-        ax1.set_ylabel(y_labels[0], color='tab:blue')
+        ax1.plot(x, y_series[0], color='tab:purple', label=y_labels[0])
+        ax1.plot(x, y_series[1], color='tab:green', label = y_labels[1])
+        ax1.plot(x, y_series[2], color='tab:blue', label = y_labels[2])
+        ax1.set_ylabel(y_labels[2], color='tab:blue')
         ax1.tick_params(axis='y', labelcolor='tab:blue')
 
         # Right axis
         ax2 = ax1.twinx()
-        ax2.plot(x, y_series[1], color='tab:orange', label=y_labels[1])
-        ax2.set_ylabel(y_labels[1], color='tab:orange')
+        ax2.plot(x, y_series[3], color='tab:olive', label=y_labels[3])
+        ax2.plot(x, y_series[4], color='tab:red', label=y_labels[4])
+        ax2.plot(x, y_series[5], color='tab:orange', label=y_labels[5])
+        ax2.set_ylabel(y_labels[5], color='tab:orange')
         ax2.tick_params(axis='y', labelcolor='tab:orange')
 
         # Draw horizontal line at y=1 on both axes
