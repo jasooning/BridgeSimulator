@@ -51,11 +51,14 @@ def flex_stress(M, I, y_top, y_bot):
     fos_c_bot = sigma_C / (M * y_bot / I)
     fos_t_top = sigma_T / (M * y_top / I)
 
+    fos_c = max(abs(fos_c_top), abs(fos_c_bot))
+    fos_t = max(abs(fos_t_bot), abs(fos_t_top))
+
     #FOS: c_top, t_bot, c_bot, t_top
     #return dictionary
     return {
-        "Max Compression at Top" : abs(fos_c_top),
-        "Max Tension at Bottom" : abs(fos_t_bot),
+        "Max Compression" : fos_c,
+        "Max Tension" : fos_t,
     }
 
 #function that calculates maximum shear stress applied to material [assumes constant cross-section so far] TODO
@@ -82,10 +85,10 @@ def shear_stress(V, Q, I, b):
 def plate_buckling(rects, ybar, M, V, I, Q, pos):
     if (M == 0) : 
         return {
-            "TYPE 1 PLATE BUCKLING" : 0, 
-            "TYPE 2 PLATE BUCKLING" : 0, 
-            "TYPE 3 PLATE BUCKLING" : 0, 
-            "TYPE 4 PLATE BUCKLING" : 0
+            "CASE 1 PLATE BUCKLING" : 0, 
+            "CASE 2 PLATE BUCKLING" : 0, 
+            "CASE 3 PLATE BUCKLING" : 0, 
+            "CASE 4 PLATE BUCKLING" : 0
         }
     global E, mu, sigma_C, diaphragm_spacing
 
@@ -211,10 +214,10 @@ def plate_buckling(rects, ybar, M, V, I, Q, pos):
                 min4 = min(min4, tau_allowable / tau_current)
 
     return {
-        "TYPE 1 PLATE BUCKLING" : (0 if min1 == float("inf") else abs(min1)), 
-        "TYPE 2 PLATE BUCKLING" : (0 if min2 == float("inf") else abs(min2)), 
-        "TYPE 3 PLATE BUCKLING" : (0 if min3 == float("inf") else abs(min3)), 
-        "TYPE 4 PLATE BUCKLING" : (0 if min4 == float("inf") else abs(min4)), 
+        "CASE 1 PLATE BUCKLING" : (0 if min1 == float("inf") else abs(min1)), 
+        "CASE 2 PLATE BUCKLING" : (0 if min2 == float("inf") else abs(min2)), 
+        "CASE 3 PLATE BUCKLING" : (0 if min3 == float("inf") else abs(min3)), 
+        "CASE 4 PLATE BUCKLING" : (0 if min4 == float("inf") else abs(min4)), 
     }
 
 
@@ -281,44 +284,14 @@ if __name__ == "__main__":
     #varying FOS across the bridge
     list = FOS_whole_bridge(SFD_ENV, BMD_ENV, rects)
 
-    plot.plot(list)
+    del list[1], list[-1]
 
+    plot.plot(list, True)
 
+    #technically optional here
+    '''
     with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
         for i in list:
             file.write(str(i) + "\n")
-            #file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV_SFD[i]) + " " + str(ENV_BMD[i]) + " \n")
-    
-    print ("DONE")
     '''
-
-    
-    #define everything
-    BMD_ENV = BMD.BME()
-    SFD_ENV = BMD.SFE()
-
-    rects = CrossSection.get_rects()
-    print ("rects", rects)
-
-    #print ([i if i[2] > i[3] else None for i in rects])
-
-    #flexural stresses
-    I = CrossSection.I(rects)
-    ybar = CrossSection.ybar(rects)
-    y_top = CrossSection.ybar_top(rects)
-    y_bot = CrossSection.ybar_bot(rects)
-
-    #shear stresses
-    Q = CrossSection.Q(rects, ybar)
-    print ("Q", Q)
-    b = CrossSection.width_at_centroid(rects, ybar)
-
-    #flexural stresses
-    FOS = flex_stress(BMD_ENV, I, y_top, y_bot)
-    FOS = FOS | shear_stress(SFD_ENV, Q, I, b)
-    FOS = FOS | plate_buckling(rects, ybar, BMD_ENV)
-
-    FOS = dict(sorted(FOS.items(), key = lambda item: item[1]))
-    print()
-    print_FOS (FOS)
-    #print (FOS_flex, FOS_shear, FOS_plate_buckling)'''
+    print ("DONE")
