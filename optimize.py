@@ -20,7 +20,7 @@ import numpy
 # define here, I'm placing them at increments of 100 to start with
 
 #diaphragm_spacing = [20, 30, 230, 625, 1020, 1220, 1230]
-diaphragm_spacing = [25, 1225]
+diaphragm_spacing = [0, 25, 1225, 1250]
 
 tau_max = 4
 tau_glue = 2
@@ -189,7 +189,7 @@ def plate_buckling(rects, ybar, M, V, I, Q, b, pos):
             #check entire length of bridge w all diaphragms for maximum Pcrit & any failure caused by Pcrit (TODO)
             #min4 = FOS
             for j in range(1, len(diaphragm_spacing)):
-                if not (diaphragm_spacing[j - 1] < pos < diaphragm_spacing[j]): continue
+                if not (diaphragm_spacing[j - 1] <= pos <= diaphragm_spacing[j]): continue
                 #sigma_crit = My / I
                 #M = sigma_crit * I / y_max
 
