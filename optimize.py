@@ -80,7 +80,7 @@ def shear_stress(V, Q, I, b):
 #function that splits crosssection into different plate-buckling cases
 #then calculates all minimum FOS's for each plate buckling case
 #returns FOS for the position on the bridge
-def plate_buckling(rects, ybar, M, V, I, Q, b):
+def plate_buckling(rects, ybar, M, V, I, Q, b, pos):
     if (M == 0) : 
         return {
             "TYPE 1 PLATE BUCKLING" : 0, 
@@ -189,6 +189,7 @@ def plate_buckling(rects, ybar, M, V, I, Q, b):
             #check entire length of bridge w all diaphragms for maximum Pcrit & any failure caused by Pcrit (TODO)
             #min4 = FOS
             for j in range(1, len(diaphragm_spacing)):
+                if not (diaphragm_spacing[j - 1] < pos < diaphragm_spacing[j]): continue
                 #sigma_crit = My / I
                 #M = sigma_crit * I / y_max
 
@@ -231,7 +232,7 @@ def FOS_whole_bridge(SFD_ENV, BMD_ENV, rects):
     for i in range(1250):
         FOS = flex_stress(BMD_ENV[i], I, y_top, y_bot)
         FOS = FOS | shear_stress(SFD_ENV[i], Q, I, b)
-        FOS = FOS | plate_buckling(rects, ybar, BMD_ENV[i], abs(SFD_ENV[i]), I, Q, b)
+        FOS = FOS | plate_buckling(rects, ybar, BMD_ENV[i], abs(SFD_ENV[i]), I, Q, b, i)
 
         #print (FOS)
         if (i == 0):
