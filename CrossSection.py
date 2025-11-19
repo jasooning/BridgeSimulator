@@ -185,6 +185,7 @@ def Q(rects, ybar):
 
     rects_below = []
     for i in rects:
+        print(i)
         rects_below.append(intersect(i, below))
 
     print ("rects below", rects_below)
