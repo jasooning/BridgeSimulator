@@ -211,10 +211,10 @@ def plate_buckling(rects, ybar, M, V, I, Q, b, pos):
                 min4 = min(min4, V_min / V)
 
     return {
-        "TYPE 1 PLATE BUCKLING" : abs(min1), 
-        "TYPE 2 PLATE BUCKLING" : abs(min2), 
-        "TYPE 3 PLATE BUCKLING" : abs(min3), 
-        "TYPE 4 PLATE BUCKLING" : abs(min4)
+        "TYPE 1 PLATE BUCKLING" : (0 if min1 == float("inf") else abs(min1)), 
+        "TYPE 2 PLATE BUCKLING" : (0 if min2 == float("inf") else abs(min2)), 
+        "TYPE 3 PLATE BUCKLING" : (0 if min3 == float("inf") else abs(min3)), 
+        "TYPE 4 PLATE BUCKLING" : (0 if min4 == float("inf") else abs(min4)), 
     }
 
 
