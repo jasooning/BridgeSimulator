@@ -198,7 +198,7 @@ def Q(rects, ybar):
     return out
 
 #return width at centroid
-def width_at_centroid(rects, ybar):
+def width_at_location(rects, ybar):
     out = 0
     for i in rects:
         if i[1] - i[3] / 2 < ybar < i[1] + i[3] / 2:
@@ -235,4 +235,4 @@ if __name__ == "__main__":
     rects = get_rects()
     ybarr = ybar(rects)
 
-    print (ybarr, I(rects), Q(rects, ybarr), width_at_centroid(rects, ybarr))
+    print (ybarr, I(rects), Q(rects, ybarr), width_at_location(rects, ybarr))
