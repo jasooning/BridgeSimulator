@@ -3,9 +3,9 @@ from pylab import loadtxt
 import plot
 
 # masses of m1 = wagons, m2 = locomotive
-m1 = 504 / 1.2 # locomotive
-m2 = 332 / 1.2 # first car
-m3 = 365 / 1.2 # last car
+m1 = 420 # locomotive
+m2 = 277 # first car
+m3 = 304 # last car
 #spacing constants between applied loads (as given from front of train) [offsets]
 spacing = [0, -176, -340, -516, -680, -856]
 
