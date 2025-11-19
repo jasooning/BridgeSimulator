@@ -18,7 +18,9 @@ import numpy
 
 #constants: #MPa
 # define here, I'm placing them at increments of 100 to start with
-diaphragm_spacing = [25, 125, 225, 325, 425, 525, 625, 725, 825, 925, 1025, 1125, 1225]
+
+#diaphragm_spacing = [20, 30, 230, 625, 1020, 1220, 1230]
+diaphragm_spacing = [25, 1225]
 
 tau_max = 4
 tau_glue = 2
@@ -167,18 +169,18 @@ def plate_buckling(rects, ybar, M, V, I, Q, b):
         if (i[1] == 1):
             #M = sigma_crit * I / y_max
             #FOS = M_min / M_actual
-            sigma_crit = 4 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2
+            sigma_crit = 4 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][3] / i[0][2]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
             min1 = min(min1, M_min / M)
 
         elif (i[1] == 2):
-            sigma_crit = 0.425 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2
+            sigma_crit = 0.425 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][3] / i[0][2]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
             min2 = min(min2, M_min / M)
 
         elif (i[1] == 3):
-            sigma_crit = 6 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][2] / i[0][3]) ** 2
+            sigma_crit = 6 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][2] / i[0][3]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
             min3 = min(min3, M_min / M)
@@ -195,7 +197,7 @@ def plate_buckling(rects, ybar, M, V, I, Q, b):
 
                 a = diaphragm_spacing[j] - diaphragm_spacing[j - 1]
                 #M_actual = max(BMD[diaphragm_spacing[j]], BMD[diaphragm_spacing[j - 1]]) # need this for proper FOS calculations using Pcrit
-                tau = 5 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
+                tau = 5 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
 
                 #tau = VQ / Ib
                 #V = tau * Ib / Q
