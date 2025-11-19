@@ -211,10 +211,10 @@ def plate_buckling(rects, ybar, M, V, I, Q, pos):
                 min4 = min(min4, tau_allowable / tau_current)
 
     return {
-        "TYPE 1 PLATE BUCKLING" : (0 if min1 == float("inf") else abs(min1)), 
-        "TYPE 2 PLATE BUCKLING" : (0 if min2 == float("inf") else abs(min2)), 
-        "TYPE 3 PLATE BUCKLING" : (0 if min3 == float("inf") else abs(min3)), 
-        "TYPE 4 PLATE BUCKLING" : (0 if min4 == float("inf") else abs(min4)), 
+        "CASE 1 PLATE BUCKLING" : (0 if min1 == float("inf") else abs(min1)), 
+        "CASE 2 PLATE BUCKLING" : (0 if min2 == float("inf") else abs(min2)), 
+        "CASE 3 PLATE BUCKLING" : (0 if min3 == float("inf") else abs(min3)), 
+        "CASE 4 PLATE BUCKLING" : (0 if min4 == float("inf") else abs(min4)), 
     }
 
 
@@ -283,42 +283,9 @@ if __name__ == "__main__":
 
     plot.plot(list)
 
-
+    #technically optional here
     with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
         for i in list:
             file.write(str(i) + "\n")
-            #file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV_SFD[i]) + " " + str(ENV_BMD[i]) + " \n")
     
     print ("DONE")
-    '''
-
-    
-    #define everything
-    BMD_ENV = BMD.BME()
-    SFD_ENV = BMD.SFE()
-
-    rects = CrossSection.get_rects()
-    print ("rects", rects)
-
-    #print ([i if i[2] > i[3] else None for i in rects])
-
-    #flexural stresses
-    I = CrossSection.I(rects)
-    ybar = CrossSection.ybar(rects)
-    y_top = CrossSection.ybar_top(rects)
-    y_bot = CrossSection.ybar_bot(rects)
-
-    #shear stresses
-    Q = CrossSection.Q(rects, ybar)
-    print ("Q", Q)
-    b = CrossSection.width_at_centroid(rects, ybar)
-
-    #flexural stresses
-    FOS = flex_stress(BMD_ENV, I, y_top, y_bot)
-    FOS = FOS | shear_stress(SFD_ENV, Q, I, b)
-    FOS = FOS | plate_buckling(rects, ybar, BMD_ENV)
-
-    FOS = dict(sorted(FOS.items(), key = lambda item: item[1]))
-    print()
-    print_FOS (FOS)
-    #print (FOS_flex, FOS_shear, FOS_plate_buckling)'''
