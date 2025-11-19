@@ -123,9 +123,9 @@ if __name__ == "__main__":
 
 
 
-
+'''
     with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
         for i in range(len(BMD)):
-            file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV_SFD[i]) + " " + str(ENV_BMD[i]) + " \n")
+            file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV_SFD[i]) + " " + str(ENV_BMD[i]) + " \n")'''
 
 

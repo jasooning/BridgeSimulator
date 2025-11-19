@@ -289,8 +289,9 @@ if __name__ == "__main__":
     plot.plot(list, True)
 
     #technically optional here
+    '''
     with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
         for i in list:
             file.write(str(i) + "\n")
-    
+    '''
     print ("DONE")
