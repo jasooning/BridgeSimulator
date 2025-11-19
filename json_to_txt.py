@@ -2,7 +2,7 @@ import json
 import tkinter as tk
 from tkinter import filedialog
 
-path = "goofy.json"
+path = "goofy2.json"
 try:
     with open(path, 'r') as file:
         data = json.load(file)
