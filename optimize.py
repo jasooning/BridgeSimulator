@@ -82,10 +82,10 @@ def shear_stress(V, Q, I, b):
 def plate_buckling(rects, ybar, M, V, I, Q, pos):
     if (M == 0) : 
         return {
-            "TYPE 1 PLATE BUCKLING" : 0, 
-            "TYPE 2 PLATE BUCKLING" : 0, 
-            "TYPE 3 PLATE BUCKLING" : 0, 
-            "TYPE 4 PLATE BUCKLING" : 0
+            "CASE 1 PLATE BUCKLING" : 0, 
+            "CASE 2 PLATE BUCKLING" : 0, 
+            "CASE 3 PLATE BUCKLING" : 0, 
+            "CASE 4 PLATE BUCKLING" : 0
         }
     global E, mu, sigma_C, diaphragm_spacing
 
@@ -281,7 +281,9 @@ if __name__ == "__main__":
     #varying FOS across the bridge
     list = FOS_whole_bridge(SFD_ENV, BMD_ENV, rects)
 
-    plot.plot(list)
+    del list[1], list[-1]
+
+    plot.plot(list, True)
 
     #technically optional here
     with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:

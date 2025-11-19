@@ -1,5 +1,6 @@
 import numpy
 from pylab import loadtxt
+import plot
 
 # masses of m1 = wagons, m2 = locomotive
 m1 = 504 / 1.2 # locomotive
@@ -91,6 +92,13 @@ def maxl(a, b):
         out.append(max(a[i], b[i]))
     return out
 
+def combine(ENV_SFD, ENV_BMD):
+    out = []
+    for i in range(len(ENV_SFD)):
+        out.append(str(i) + "," + str(ENV_SFD[i]) + "," + str(ENV_BMD[i]))
+    return out
+
+
 if __name__ == "__main__":
 
 
@@ -100,6 +108,13 @@ if __name__ == "__main__":
 
     ENV_BMD = BME()
     ENV_SFD = SFE()
+
+    L = combine(ENV_SFD, ENV_BMD)
+    L.insert(0, "POSITION (mm),SFE (N),BME (N mm)")
+
+    del L[1], L[-1]
+
+    plot.plot(L, False)
 
 #for i in range(len(BMD)):
 #    print (i, BMD[i])
