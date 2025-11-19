@@ -1,0 +1,35 @@
+[
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      10.0,
+      0.01
+    ],
+    "rotation": 0.0,
+    "w": 80.0,
+    "h": 1.27
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      10.0,
+      1.28
+    ],
+    "rotation": 0.0,
+    "w": 1.27,
+    "h": 64.49
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      88.73,
+      1.28
+    ],
+    "rotation": 0.0,
+    "w": 1.27,
+    "h": 64.49
+  }
+]

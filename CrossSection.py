@@ -63,10 +63,15 @@ def I(rects):
 
 #return rectangle intersection of rectangles a and b
 def intersect(a, b):
-    return [ (max(a[0]-a[2]/2, b[0]-b[2]/2) + min(a[0]+a[2]/2, b[0]+b[2]/2)) / 2,
-             (max(a[1]-a[3]/2, b[1]-b[3]/2) + min(a[1]+a[3]/2, b[1]+b[3]/2)) / 2,
-             max(0, min(a[0]+a[2]/2, b[0]+b[2]/2) - max(a[0]-a[2]/2, b[0]-b[2]/2)),
-             max(0, min(a[1]+a[3]/2, b[1]+b[3]/2) - max(a[1]-a[3]/2, b[1]-b[3]/2)) ]
+    x_center = round((max(a[0]-a[2]/2, b[0]-b[2]/2) + min(a[0]+a[2]/2, b[0]+b[2]/2)) / 2, 2)
+    y_center = round((max(a[1]-a[3]/2, b[1]-b[3]/2) + min(a[1]+a[3]/2, b[1]+b[3]/2)) / 2, 2)
+    width = round(max(0, min(a[0]+a[2]/2, b[0]+b[2]/2) - max(a[0]-a[2]/2, b[0]-b[2]/2)), 2)
+    height = round(max(0, min(a[1]+a[3]/2, b[1]+b[3]/2) - max(a[1]-a[3]/2, b[1]-b[3]/2)), 2)
+
+    if width == 0 or height == 0:
+        return None
+    else:
+        return [x_center, y_center, width, height]
 
 
 # return a list of rectangles representing (a minus b)
@@ -162,6 +167,7 @@ def Q(rects, ybar):
 
     rects_below = []
     for i in rects:
+        print(i)
         rects_below.append(intersect(i, below))
 
     print ("rects below", rects_below)
@@ -199,7 +205,7 @@ def ybar_top(rects):
     return max([a[1] + a[3] / 2 for a in rects]) - YBAR
 
 def get_rects():
-    file = load_file("./section_test.txt")
+    file = load_file("./section_v1.txt")
 
     rects = []
 
@@ -213,3 +219,4 @@ if __name__ == "__main__":
     rects = get_rects()
 
     print (ybar_bot(rects), I(rects))
+    print(Q(rects, ybar_bot(rects)))
