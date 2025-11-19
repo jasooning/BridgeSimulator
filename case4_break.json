@@ -1,0 +1,46 @@
+[
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      0.0,
+      0.0
+    ],
+    "rotation": 0.0,
+    "w": 100.0,
+    "h": 10.0
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      0.0,
+      10.0
+    ],
+    "rotation": 0.0,
+    "w": 1.0,
+    "h": 100.0
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      99.0,
+      10.0
+    ],
+    "rotation": 0.0,
+    "w": 1.0,
+    "h": 100.0
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      0.0,
+      110.0
+    ],
+    "rotation": 0.0,
+    "w": 100.0,
+    "h": 10.0
+  }
+]
