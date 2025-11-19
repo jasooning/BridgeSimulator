@@ -2,7 +2,7 @@ import BMD
 import CrossSection
 import copy
 import numpy
-
+import plot
 
 #test 10 ways the bridge can fail
 
@@ -18,7 +18,6 @@ import numpy
 
 #constants: #MPa
 # define here, I'm placing them at increments of 100 to start with
-
 #diaphragm_spacing = [20, 30, 230, 625, 1020, 1220, 1230]
 diaphragm_spacing = [0, 25, 1225, 1250]
 
@@ -170,18 +169,18 @@ def plate_buckling(rects, ybar, M, V, I, Q, b, pos):
             #M = sigma_crit * I / y_max
             #FOS = M_min / M_actual
             sigma_crit = 4 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][3] / i[0][2]) ** 2
-            M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
+            M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] / 2 - ybar), abs(i[0][1] + i[0][3] / 2 - ybar)))
             min1 = min(min1, M_min / M)
 
         elif (i[1] == 2):
             sigma_crit = 0.425 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][3] / i[0][2]) ** 2
-            M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
+            M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] / 2 - ybar), abs(i[0][1] + i[0][3] / 2 - ybar)))
 
             min2 = min(min2, M_min / M)
 
         elif (i[1] == 3):
             sigma_crit = 6 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][2] / i[0][3]) ** 2
-            M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
+            M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] / 2 - ybar), abs(i[0][1] + i[0][3] / 2 - ybar)))
 
             min3 = min(min3, M_min / M)
 
@@ -198,17 +197,17 @@ def plate_buckling(rects, ybar, M, V, I, Q, b, pos):
 
                 a = diaphragm_spacing[j] - diaphragm_spacing[j - 1]
                 #M_actual = max(BMD[diaphragm_spacing[j]], BMD[diaphragm_spacing[j - 1]]) # need this for proper FOS calculations using Pcrit
-                tau = 5 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
+                tau_allowable = 5 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
 
                 #tau = VQ / Ib
                 #V = tau * Ib / Q
-                #FOS = V / V_in
+                #FOS = V / V_i
 
-                V_min = tau * I * b / Q
+                tau_current = V * Q / I / b
 
                 #M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
-                min4 = min(min4, V_min / V)
+                min4 = min(min4, tau_allowable / tau_current)
 
     return {
         "TYPE 1 PLATE BUCKLING" : (0 if min1 == float("inf") else abs(min1)), 
@@ -250,7 +249,7 @@ def to_string(list, pos):
         out = "Position (mm),"
     for i in list:
         out = out + str(i) + ","
-    return out
+    return out[:-1]
 
 def print_FOS(fos_dict):
     """
@@ -272,10 +271,17 @@ def print_dict(dict):
 if __name__ == "__main__":
     BMD_ENV = BMD.BME()
     SFD_ENV = BMD.SFE()
+
+    print (max(SFD_ENV))
+
+    #exit()
     rects = CrossSection.get_rects()
 
     #varying FOS across the bridge
     list = FOS_whole_bridge(SFD_ENV, BMD_ENV, rects)
+
+    plot.plot(list)
+
 
     with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
         for i in list:
@@ -283,8 +289,9 @@ if __name__ == "__main__":
             #file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV_SFD[i]) + " " + str(ENV_BMD[i]) + " \n")
     
     print ("DONE")
-
     '''
+
+    
     #define everything
     BMD_ENV = BMD.BME()
     SFD_ENV = BMD.SFE()
@@ -314,4 +321,3 @@ if __name__ == "__main__":
     print()
     print_FOS (FOS)
     #print (FOS_flex, FOS_shear, FOS_plate_buckling)'''
-

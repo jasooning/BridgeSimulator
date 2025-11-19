@@ -63,10 +63,33 @@ def I(rects):
 
 #return rectangle intersection of rectangles a and b
 def intersect(a, b):
-    return [ (max(a[0]-a[2]/2, b[0]-b[2]/2) + min(a[0]+a[2]/2, b[0]+b[2]/2)) / 2,
-             (max(a[1]-a[3]/2, b[1]-b[3]/2) + min(a[1]+a[3]/2, b[1]+b[3]/2)) / 2,
-             max(0, min(a[0]+a[2]/2, b[0]+b[2]/2) - max(a[0]-a[2]/2, b[0]-b[2]/2)),
-             max(0, min(a[1]+a[3]/2, b[1]+b[3]/2) - max(a[1]-a[3]/2, b[1]-b[3]/2)) ]
+    if not intersects(a, b):
+        return [0, 0, 0, 0]
+
+    # edges of a
+    x1, x2 = a[0] - a[2]/2, a[0] + a[2]/2
+    y1, y2 = a[1] - a[3]/2, a[1] + a[3]/2
+
+    # edges of b
+    x3, x4 = b[0] - b[2]/2, b[0] + b[2]/2
+    y3, y4 = b[1] - b[3]/2, b[1] + b[3]/2
+
+    # intersection edges
+    ix1 = max(x1, x3)
+    ix2 = min(x2, x4)
+    iy1 = max(y1, y3)
+    iy2 = min(y2, y4)
+
+    # width and height
+    w = ix2 - ix1
+    h = iy2 - iy1
+
+    # center of intersection
+    cx = (ix1 + ix2) / 2
+    cy = (iy1 + iy2) / 2
+
+    return [cx, cy, w, h]
+
 
 
 # return a list of rectangles representing (a minus b)
@@ -175,13 +198,11 @@ def Q(rects, ybar):
 
 #return width at centroid
 def width_at_centroid(rects, ybar):
-    centroid = [0, ybar, 1000, 0]
-
     out = 0
     for i in rects:
-        if i == None: continue
-        out += intersect(centroid, i)[2]
-    
+        if i[1] - i[3] / 2 < ybar < i[1] + i[3] / 2:
+            out += i[2]
+
     return out
 
 
@@ -199,7 +220,7 @@ def ybar_top(rects):
     return max([a[1] + a[3] / 2 for a in rects]) - YBAR
 
 def get_rects():
-    file = load_file("./section_test.txt")
+    file = load_file("./section_v1.txt")
 
     rects = []
 
@@ -211,5 +232,6 @@ def get_rects():
 if __name__ == "__main__":
 
     rects = get_rects()
+    ybarr = ybar(rects)
 
-    print (ybar_bot(rects), I(rects))
+    print (ybarr, I(rects), Q(rects, ybarr), width_at_centroid(rects, ybarr))
