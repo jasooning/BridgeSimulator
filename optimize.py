@@ -29,44 +29,47 @@ E = 4000
 mu = 0.2
 
 #function returns FOS's of all possible flexural stresses along the bridge [assumes constant crosssection] [TODO]
-def flex_stress(BMD, I, y_top, y_bot):
+def flex_stress(M, I, y_top, y_bot):
+    if (M == 0):
+        return {
+            "Max Compression at Top" : 0,
+            "Max Tension at Bottom" : 0,
+        }
     global sigma_C, sigma_T
 
-    Mmax = max(BMD)
-    Mmin = abs(min(BMD))
+    #Mmax = max(BMD)
+    #Mmin = abs(min(BMD))
 
     #tension & compression at Mmax (compression top, tension bottom)
 
-    fos_c_top = sigma_C / (Mmax * y_top / I)
-    fos_t_bot = sigma_T / (Mmax * y_bot / I)
+    fos_c_top = sigma_C / (M * y_top / I)
+    fos_t_bot = sigma_T / (M * y_bot / I)
 
     #tension & compressiont at Min
 
-    fos_c_bot = sigma_C / (Mmin * y_bot / I)
-    fos_t_top = sigma_T / (Mmin * y_top / I)
+    fos_c_bot = sigma_C / (M * y_bot / I)
+    fos_t_top = sigma_T / (M * y_top / I)
 
     #FOS: c_top, t_bot, c_bot, t_top
     #return dictionary
     return {
-        "Max Tension at Top" : fos_t_top, 
-        "Max Compression at Top" : fos_c_top,
-        "Max Tension at Bottom" : fos_t_bot,
-        "Max Compression at Bottom" : fos_c_bot
+        "Max Compression at Top" : abs(fos_c_top),
+        "Max Tension at Bottom" : abs(fos_t_bot),
     }
 
 #function that calculates maximum shear stress applied to material [assumes constant cross-section so far] TODO
 #returns FOS's for both shear-stress failure and shear-glue failure [TODO]
-def shear_stress(SFE, Q, I, b):
+def shear_stress(V, Q, I, b):
 
     global tau_max, tau_glue
 
-    V = max(max(SFE), abs(min(SFE)))
+    #V = max(max(SFE), abs(min(SFE)))
 
     #print (V, Q, I, b)
 
     #don't forget to implement glue tabs
 
-    tau = V * Q / I / b
+    tau = abs(V * Q / I / b)
     return {
         "Material Shear Stress" : tau_max / tau,
         "Glue Shear Stress" : 0 # TODO
@@ -74,8 +77,15 @@ def shear_stress(SFE, Q, I, b):
 
 #function that splits crosssection into different plate-buckling cases
 #then calculates all minimum FOS's for each plate buckling case
-
-def plate_buckling(rects, ybar, BMD):
+#returns FOS for the position on the bridge
+def plate_buckling(rects, ybar, M, V, I, Q, b):
+    if (M == 0) : 
+        return {
+            "TYPE 1 PLATE BUCKLING" : 0, 
+            "TYPE 2 PLATE BUCKLING" : 0, 
+            "TYPE 3 PLATE BUCKLING" : 0, 
+            "TYPE 4 PLATE BUCKLING" : 0
+        }
     global E, mu, sigma_C, diaphragm_spacing
 
     h_rects = []
@@ -148,10 +158,10 @@ def plate_buckling(rects, ybar, BMD):
     min4 = float("inf")
 
     #making sure that the dictionary of rects & types is valid
-    print_dict(type_dict)
+    #print_dict(type_dict)
 
     #find maximum moment in BMD -> used for calculating FOS for case 1-3 plate buckling
-    BMD_max = max(BMD, key = abs)
+    #BMD_max = max(M, key = abs)
 
     for i in type_dict.items():
         if (i[1] == 1):
@@ -159,19 +169,19 @@ def plate_buckling(rects, ybar, BMD):
             #FOS = M_min / M_actual
             sigma_crit = 4 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
-            min1 = min(min1, M_min / BMD_max)
+            min1 = min(min1, M_min / M)
 
         elif (i[1] == 2):
             sigma_crit = 0.425 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][3] / i[0][2]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
-            min2 = min(min2, M_min / BMD_max)
+            min2 = min(min2, M_min / M)
 
         elif (i[1] == 3):
             sigma_crit = 6 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * (i[0][2] / i[0][3]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
-            min3 = min(min3, M_min / BMD_max)
+            min3 = min(min3, M_min / M)
 
         elif (i[1] == 4):
             #check entire length of bridge w all diaphragms for maximum Pcrit & any failure caused by Pcrit (TODO)
@@ -184,21 +194,59 @@ def plate_buckling(rects, ybar, BMD):
 
 
                 a = diaphragm_spacing[j] - diaphragm_spacing[j - 1]
-                M_actual = max(BMD[diaphragm_spacing[j]], BMD[diaphragm_spacing[j - 1]]) # need this for proper FOS calculations using Pcrit
-                sigma_crit = 5 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
+                #M_actual = max(BMD[diaphragm_spacing[j]], BMD[diaphragm_spacing[j - 1]]) # need this for proper FOS calculations using Pcrit
+                tau = 5 * numpy.pi ** 2 * E / 12 / (1 - mu) ** 2 * ((i[0][2] / a) ** 2 + (i[0][2] / i[0][3]) ** 2)
 
-                M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
+                #tau = VQ / Ib
+                #V = tau * Ib / Q
+                #FOS = V / V_in
 
-                min4 = min(min4, M_min / M_actual)
+                V_min = tau * I * b / Q
+
+                #M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
+
+                min4 = min(min4, V_min / V)
 
     return {
-        "TYPE 1 PLATE BUCKLING" : min1, 
-        "TYPE 2 PLATE BUCKLING" : min2, 
-        "TYPE 3 PLATE BUCKLING" : min3, 
-        "TYPE 4 PLATE BUCKLING" : min4
+        "TYPE 1 PLATE BUCKLING" : abs(min1), 
+        "TYPE 2 PLATE BUCKLING" : abs(min2), 
+        "TYPE 3 PLATE BUCKLING" : abs(min3), 
+        "TYPE 4 PLATE BUCKLING" : abs(min4)
     }
 
+
+def FOS_whole_bridge(SFD_ENV, BMD_ENV, rects):
+    ybar = CrossSection.ybar(rects)
+    y_top = CrossSection.ybar_top(rects)
+    y_bot = CrossSection.ybar_bot(rects)
+
+    I = CrossSection.I(rects)
+    Q = CrossSection.Q(rects, ybar)
+    b = CrossSection.width_at_centroid(rects, ybar)
+
+    out = []
+
+    for i in range(1250):
+        FOS = flex_stress(BMD_ENV[i], I, y_top, y_bot)
+        FOS = FOS | shear_stress(SFD_ENV[i], Q, I, b)
+        FOS = FOS | plate_buckling(rects, ybar, BMD_ENV[i], abs(SFD_ENV[i]), I, Q, b)
+
+        #print (FOS)
+        if (i == 0):
+            out.append(to_string(FOS.keys(), i))
+
+        out.append(to_string(FOS.values(), i))
+    
+    return out
+
+
 #print dictionary in readable format
+def to_string(list, pos):
+    out = str(pos) + ","
+    for i in list:
+        out = out + str(i) + ","
+    return out
+
 def print_FOS(fos_dict):
     """
     Print a dictionary of FOS values in aligned columns.
@@ -217,6 +265,21 @@ def print_dict(dict):
 
 
 if __name__ == "__main__":
+    BMD_ENV = BMD.BME()
+    SFD_ENV = BMD.SFE()
+    rects = CrossSection.get_rects()
+
+    #varying FOS across the bridge
+    list = FOS_whole_bridge(SFD_ENV, BMD_ENV, rects)
+
+    with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
+        for i in list:
+            file.write(str(i) + "\n")
+            #file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV_SFD[i]) + " " + str(ENV_BMD[i]) + " \n")
+    
+    print ("DONE")
+
+    '''
     #define everything
     BMD_ENV = BMD.BME()
     SFD_ENV = BMD.SFE()
@@ -245,5 +308,5 @@ if __name__ == "__main__":
     FOS = dict(sorted(FOS.items(), key = lambda item: item[1]))
     print()
     print_FOS (FOS)
-    #print (FOS_flex, FOS_shear, FOS_plate_buckling)
+    #print (FOS_flex, FOS_shear, FOS_plate_buckling)'''
 
