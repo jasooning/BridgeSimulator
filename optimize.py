@@ -19,7 +19,7 @@ import plot
 #constants: #MPa
 # define here, I'm placing them at increments of 100 to start with
 #diaphragm_spacing = [20, 30, 230, 625, 1020, 1220, 1230]
-diaphragm_spacing = [0, 25, 1225, 1250]
+diaphragm_spacing = [0, 20, 30, 425, 825, 1220, 1230, 1250]
 
 tau_max = 4
 tau_glue = 2
@@ -33,8 +33,8 @@ mu = 0.2
 def flex_stress(M, I, y_top, y_bot):
     if (M == 0):
         return {
-            "Max Compression at Top" : 0,
-            "Max Tension at Bottom" : 0,
+            "Max Compression" : 0,
+            "Max Tension" : 0,
         }
     global sigma_C, sigma_T
 
@@ -43,22 +43,14 @@ def flex_stress(M, I, y_top, y_bot):
 
     #tension & compression at Mmax (compression top, tension bottom)
 
-    fos_c_top = sigma_C / (M * y_top / I)
-    fos_t_bot = sigma_T / (M * y_bot / I)
-
-    #tension & compressiont at Min
-
-    fos_c_bot = sigma_C / (M * y_bot / I)
-    fos_t_top = sigma_T / (M * y_top / I)
-
-    fos_c = max(abs(fos_c_top), abs(fos_c_bot))
-    fos_t = max(abs(fos_t_bot), abs(fos_t_top))
+    fos_c = sigma_C / (M * y_top / I)
+    fos_t = sigma_T / (M * y_bot / I)
 
     #FOS: c_top, t_bot, c_bot, t_top
     #return dictionary
     return {
-        "Max Compression" : fos_c,
-        "Max Tension" : fos_t,
+        "Max Compression" : abs(fos_c),
+        "Max Tension" : abs(fos_t),
     }
 
 #function that calculates maximum shear stress applied to material [assumes constant cross-section so far] TODO
@@ -231,17 +223,26 @@ def FOS_whole_bridge(SFD_ENV, BMD_ENV, rects):
     b = CrossSection.width_at_location(rects, ybar)
 
     out = []
+    minout = {}
 
     for i in range(1250):
         FOS = flex_stress(BMD_ENV[i], I, y_top, y_bot)
         FOS = FOS | shear_stress(SFD_ENV[i], Q, I, b)
         FOS = FOS | plate_buckling(rects, ybar, BMD_ENV[i], abs(SFD_ENV[i]), I, Q, i)
 
+        #print(FOS.keys())
+        if (i == 0): pass
+        elif (i == 1): minout = copy.deepcopy(FOS)
+        else:
+            minout = {key: min(minout[key], FOS[key]) for key in minout}
+
         #print (FOS)
         if (i == 0):
             out.append(to_string(FOS.keys(), -1))
 
         out.append(to_string(FOS.values(), i))
+    
+    print_FOS(minout)
     
     return out
 
@@ -285,6 +286,9 @@ if __name__ == "__main__":
     list = FOS_whole_bridge(SFD_ENV, BMD_ENV, rects)
 
     del list[1], list[-1]
+
+    #for i in range(len(list[0])):
+       # print(str(list[0][i]) + ": " + str(min([list[j][i] for j in range(len(list[0]))])))
 
     plot.plot(list, True)
 
