@@ -179,14 +179,15 @@ def cleave(a, b_list):
     return pieces
 
 #gives Q (first moment of area) of the cross section (rects) at the centroidal axis (ybar) measured from bottom
-def Q(rects, ybar):
-    #first find rects below ybar
-    below = [0, ybar - 1000, 1000, 1000 * 2]
+def Q(rects, height, ybar):
+
+    block = [0, height - 1000, 1000, 1000 * 2]
+    if (height > ybar): block = [0, height + 1000, 1000, 1000 * 2]
 
     rects_below = []
     for i in rects:
         print(i)
-        rects_below.append(intersect(i, below))
+        rects_below.append(intersect(i, block))
 
     print ("rects below", rects_below)
     
@@ -201,10 +202,16 @@ def Q(rects, ybar):
 def width_at_location(rects, ybar):
     out = 0
     for i in rects:
-        if i[1] - i[3] / 2 < ybar < i[1] + i[3] / 2:
+        if i[1] - i[3] / 2 < ybar <= i[1] + i[3] / 2:
             out += i[2]
 
     return out
+
+def cross_section_at_pos(pos):
+    spac = [125, 1125]
+    if spac[0] < pos < spac[1]:
+        return "middle"
+    return "support"
 
 
 
@@ -220,8 +227,8 @@ def ybar_top(rects):
     YBAR = ybar(rects)
     return max([a[1] + a[3] / 2 for a in rects]) - YBAR
 
-def get_rects():
-    file = load_file("./section_v4_supports.txt")
+def get_rects(file_name):
+    file = load_file(file_name)
 
     rects = []
 
@@ -232,7 +239,7 @@ def get_rects():
 
 if __name__ == "__main__":
 
-    rects = get_rects()
+    rects = get_rects("./section_v4_supports.txt")
     ybarr = ybar(rects)
 
-    print (ybarr, I(rects), Q(rects, ybarr), width_at_location(rects, ybarr))
+    print (ybarr, I(rects), Q(rects, 100, ybarr), width_at_location(rects, 100))
