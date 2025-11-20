@@ -19,7 +19,7 @@ import plot
 #constants: #MPa
 # define here, I'm placing them at increments of 100 to start with
 #diaphragm_spacing = [20, 30, 230, 625, 1020, 1220, 1230]
-diaphragm_spacing = [0, 25, 1225, 1250]
+diaphragm_spacing = [0, 20, 30, 425, 825, 1220, 1230, 1250]
 
 tau_max = 4
 tau_glue = 2
@@ -33,8 +33,8 @@ mu = 0.2
 def flex_stress(M, I, y_top, y_bot):
     if (M == 0):
         return {
-            "Max Compression at Top" : 0,
-            "Max Tension at Bottom" : 0,
+            "Max Compression" : 0,
+            "Max Tension" : 0,
         }
     global sigma_C, sigma_T
 
@@ -43,22 +43,14 @@ def flex_stress(M, I, y_top, y_bot):
 
     #tension & compression at Mmax (compression top, tension bottom)
 
-    fos_c_top = sigma_C / (M * y_top / I)
-    fos_t_bot = sigma_T / (M * y_bot / I)
-
-    #tension & compressiont at Min
-
-    fos_c_bot = sigma_C / (M * y_bot / I)
-    fos_t_top = sigma_T / (M * y_top / I)
-
-    fos_c = max(abs(fos_c_top), abs(fos_c_bot))
-    fos_t = max(abs(fos_t_bot), abs(fos_t_top))
+    fos_c = sigma_C / (M * y_top / I)
+    fos_t = sigma_T / (M * y_bot / I)
 
     #FOS: c_top, t_bot, c_bot, t_top
     #return dictionary
     return {
-        "Max Compression" : fos_c,
-        "Max Tension" : fos_t,
+        "Max Compression" : abs(fos_c),
+        "Max Tension" : abs(fos_t),
     }
 
 #function that calculates maximum shear stress applied to material [assumes constant cross-section so far] TODO
@@ -67,16 +59,10 @@ def shear_stress(V, Q, I, b):
 
     global tau_max, tau_glue
 
-    #V = max(max(SFE), abs(min(SFE)))
-
-    #print (V, Q, I, b)
-
-    #don't forget to implement glue tabs
-
-    tau = abs(V * Q / I / b)
+    tau_m = abs(V * Q / I / b)
     return {
-        "Material Shear Stress" : tau_max / tau,
-        "Glue Shear Stress" : 0 # TODO
+        "Material Shear Stress" : tau_max / tau_m,
+        #"Glue Shear Stress" : 0 if tau_g == 0 else tau_max / tau_g # Ignore Glue shear sytress
     }
 
 #function that splits crosssection into different plate-buckling cases
@@ -221,27 +207,53 @@ def plate_buckling(rects, ybar, M, V, I, Q, pos):
     }
 
 
-def FOS_whole_bridge(SFD_ENV, BMD_ENV, rects):
-    ybar = CrossSection.ybar(rects)
-    y_top = CrossSection.ybar_top(rects)
-    y_bot = CrossSection.ybar_bot(rects)
+def FOS_whole_bridge(SFD_ENV, BMD_ENV, supports, middle):
+    #support cross-section
+    ybar_s = CrossSection.ybar(supports)
+    y_top_s = CrossSection.ybar_top(supports)
+    y_bot_s = CrossSection.ybar_bot(supports)
 
-    I = CrossSection.I(rects)
-    Q = CrossSection.Q(rects, ybar)
-    b = CrossSection.width_at_location(rects, ybar)
+    I_s = CrossSection.I(supports)
+    Q_s = CrossSection.Q(supports, ybar_s, ybar_s)
+    b_s = CrossSection.width_at_location(supports, ybar_s)
+
+    #middle cross-section
+    ybar_m = CrossSection.ybar(middle)
+    y_top_m = CrossSection.ybar_top(middle)
+    y_bot_m = CrossSection.ybar_bot(middle)
+
+    I_m = CrossSection.I(middle)
+    Q_m = CrossSection.Q(middle, ybar_m, ybar_m)
+    b_m = CrossSection.width_at_location(middle, ybar_m)
 
     out = []
+    minout = {}
 
     for i in range(1250):
-        FOS = flex_stress(BMD_ENV[i], I, y_top, y_bot)
-        FOS = FOS | shear_stress(SFD_ENV[i], Q, I, b)
-        FOS = FOS | plate_buckling(rects, ybar, BMD_ENV[i], abs(SFD_ENV[i]), I, Q, i)
+        mode = CrossSection.cross_section_at_pos(i)
+
+        if (mode == "support"):
+            FOS = flex_stress(BMD_ENV[i], I_s, y_top_s, y_bot_s)
+            FOS = FOS | shear_stress(SFD_ENV[i], Q_s, I_s, b_s)
+            FOS = FOS | plate_buckling(supports, ybar_s, BMD_ENV[i], abs(SFD_ENV[i]), I_s, Q_s, i)
+        elif (mode == "middle"):
+            FOS = flex_stress(BMD_ENV[i], I_m, y_top_m, y_bot_m)
+            FOS = FOS | shear_stress(SFD_ENV[i], Q_m, I_m, b_m)
+            FOS = FOS | plate_buckling(middle, ybar_m, BMD_ENV[i], abs(SFD_ENV[i]), I_m, Q_m, i)
+
+        #print(FOS.keys())
+        if (i == 0): pass
+        elif (i == 1): minout = copy.deepcopy(FOS)
+        else:
+            minout = {key: min(minout[key], FOS[key]) for key in minout}
 
         #print (FOS)
         if (i == 0):
             out.append(to_string(FOS.keys(), -1))
 
         out.append(to_string(FOS.values(), i))
+    
+    print_FOS(minout)
     
     return out
 
@@ -279,12 +291,16 @@ if __name__ == "__main__":
     print (max(SFD_ENV))
 
     #exit()
-    rects = CrossSection.get_rects()
+    supports = CrossSection.get_rects("./section_v4_supports.txt")
+    middle = CrossSection.get_rects("./section_v4_middle.txt")
 
     #varying FOS across the bridge
-    list = FOS_whole_bridge(SFD_ENV, BMD_ENV, rects)
+    list = FOS_whole_bridge(SFD_ENV, BMD_ENV, supports, middle)
 
     del list[1], list[-1]
+
+    #for i in range(len(list[0])):
+       # print(str(list[0][i]) + ": " + str(min([list[j][i] for j in range(len(list[0]))])))
 
     plot.plot(list, True)
 

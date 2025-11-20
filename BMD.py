@@ -4,8 +4,11 @@ import plot
 
 # masses of m1 = wagons, m2 = locomotive
 m1 = 420 # locomotive
+#m1 = 400/3
 m2 = 277 # first car
+#m2 = 400/3
 m3 = 304 # last car
+#m3 = 400/3#
 #spacing constants between applied loads (as given from front of train) [offsets]
 spacing = [0, -176, -340, -516, -680, -856]
 
