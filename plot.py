@@ -43,7 +43,7 @@ def plot(data_rows, plotting_fos):
         for i, y in enumerate(y_series):
             plt.plot(x, y, label=y_labels[i])
         plt.yscale("log")
-        plt.ylim(top = 10**9)
+        plt.ylim((0.9, 10**2))
         plt.ylabel("FOS (log scale)")
         plt.axhline(y=1, color='red', linestyle='--', linewidth=1, label='FOS = 1')
 

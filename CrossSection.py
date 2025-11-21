@@ -154,6 +154,7 @@ def make_wider(b_list):
     return out
 
 
+
 # cleave rectangle a by an array of rectangles b
 def cleave(a, b_list):
     pieces = [a]
@@ -210,9 +211,9 @@ def width_at_location(rects, ybar):
 def cross_section_at_pos(pos):
     # support, edge, middle
     spac = [125, 500, 800, 1125]
-    if (spac[1] < pos < spac[2]):
+    if (spac[1] <= pos <= spac[2]):
         return "middle"
-    if spac[0] < pos < spac[1] or spac[2] < pos < spac[3]:
+    if spac[0] <= pos < spac[1] or spac[2] < pos <= spac[3]:
         return "edge"
     return "support"
 
@@ -242,7 +243,7 @@ def get_rects(file_name):
 
 if __name__ == "__main__":
 
-    rects = get_rects("./section_t.txt")
+    rects = get_rects("./section_v4_supports.txt")
     ybarr = ybar(rects)
 
     print (ybarr, I(rects), Q(rects, 100, ybarr), width_at_location(rects, 100))
