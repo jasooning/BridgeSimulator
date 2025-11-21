@@ -3,7 +3,7 @@ from pylab import loadtxt
 import plot
 
 # masses of m1 = wagons, m2 = locomotive
-m1 = 420 # locomotive
+m1 = 420 ## locomotive
 #m1 = 400/3
 m2 = 277 # first car
 #m2 = 400/3
@@ -13,7 +13,7 @@ m3 = 304 # last car
 spacing = [0, -176, -340, -516, -680, -856]
 
 #dimensions of bridge
-sample_frequency = 5
+sample_frequency = 10
 length = 1250
 
 #returns tuple of tuples for both reactions (A on left, B on right), found as a sum of moments
@@ -24,7 +24,7 @@ def find_reactions(pos):
     #create array of train forces
 
     for i in range (len(spacing)):
-        if not (0 <= pos + spacing[i] <= 1250): continue
+        if not (0 < pos + spacing[i] < 1250): continue
         if (i < 2):
             out[pos + spacing[i]] = - m1 / 2
             continue
@@ -38,14 +38,24 @@ def find_reactions(pos):
     if (pos == 1000):
         print (out.keys())
     b = 0
+    #a = 0
     for i in out.keys():
-        if i == 25 or i == 1225: continue
+        if i == 25:
+            pass
+            #a -= out[i]
         b += (i - 25) * out[i]
     
     b /= -1200
     a = -sum(out.values()) - b
-    out[25] = a
-    out[1225] = b
+    if (25 in out):
+        out[25] += a
+    else:
+        out[25] = a
+
+    if (1225 in out):
+        out[1225] += b
+    else:
+        out[1225] = b
 
     return out
     
@@ -80,9 +90,7 @@ def BME():
     for i in range(0, 1251 + 856, sample_frequency):
         #print ("WORKING")
         bmdd = bmd(i)
-        for i in range(len(env)):
-            env[i] = max(env[i], bmdd[i])
-       # env = [m if abs(m) > abs(e) else e for m, e in zip(env, bmdd)]
+        env = [m if abs(m) > abs(e) else e for m, e in zip(env, bmdd)]
         #env = maxl(env, bmdd)
     print ("DONE")
     return env
@@ -91,9 +99,7 @@ def SFE():
     env = sfd(find_reactions(0))
     for i in range(0, 1251 + 856, sample_frequency):
         sfdd = sfd(find_reactions(i))
-        for i in range(len(env)):
-            env[i] = max(env[i], sfdd[i])
-        #env = [abs(m) if abs(m) > abs(e) else e for m, e, in zip(env, sfdd)]
+        env = [abs(m) if abs(m) > abs(e) else e for m, e, in zip(env, sfdd)]
     
     return env
 
@@ -171,5 +177,3 @@ if __name__ == "__main__":
     with open ("/Users/gregoryparamonau/Desktop/BRIDGE/BMD1.txt", "w") as file:
         for i in range(len(BMD)):
             file.write(str(i) + " " + str(SFD[i]) + " " + str(BMD[i]) + " " + str(ENV_SFD[i]) + " " + str(ENV_BMD[i]) + " \n")'''
-
-
