@@ -92,7 +92,7 @@ def plot(data_rows, plotting_fos):
 
         plt.xticks(np.arange(0, max(x)+50, 100))
         plt.tight_layout()
-        return  # exit early since already plotted
+#        return  # exit early since already plotted
 
     # --- Common plotting for FOS case ---
     plt.xlabel(x_label)

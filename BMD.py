@@ -13,12 +13,13 @@ m3 = 304 # last car
 spacing = [0, -176, -340, -516, -680, -856]
 
 #dimensions of bridge
+sample_frequency = 5
 length = 1250
 
 #returns tuple of tuples for both reactions (A on left, B on right), found as a sum of moments
 #returns array of tuples (position, force)
 def find_reactions(pos):
-    global m1, m2, length
+    global m1, m2, m3
     out = {}
     #create array of train forces
 
@@ -30,12 +31,15 @@ def find_reactions(pos):
         elif (i < 4):
             out[pos + spacing[i]] = - m2 / 2
             continue
-        else :
+        else:
             out[pos + spacing[i]] = -m3 / 2
             continue
 
+    if (pos == 1000):
+        print (out.keys())
     b = 0
     for i in out.keys():
+        if i == 25 or i == 1225: continue
         b += (i - 25) * out[i]
     
     b /= -1200
@@ -73,19 +77,23 @@ def bmd(pos):
 
 def BME():
     env = bmd(0)
-    for i in range(0, 1251 + 856, 10):
+    for i in range(0, 1251 + 856, sample_frequency):
         #print ("WORKING")
         bmdd = bmd(i)
-        env = [m if abs(m) > abs(e) else e for m, e in zip(env, bmdd)]
+        for i in range(len(env)):
+            env[i] = max(env[i], bmdd[i])
+       # env = [m if abs(m) > abs(e) else e for m, e in zip(env, bmdd)]
         #env = maxl(env, bmdd)
     print ("DONE")
     return env
 
 def SFE():
     env = sfd(find_reactions(0))
-    for i in range(0, 1251 + 856, 10):
+    for i in range(0, 1251 + 856, sample_frequency):
         sfdd = sfd(find_reactions(i))
-        env = [abs(m) if abs(m) > abs(e) else e for m, e, in zip(env, sfdd)]
+        for i in range(len(env)):
+            env[i] = max(env[i], sfdd[i])
+        #env = [abs(m) if abs(m) > abs(e) else e for m, e, in zip(env, sfdd)]
     
     return env
 
@@ -94,22 +102,29 @@ def min_max(min, max, abss):
 
 def min_max_sfe():
 
-    min = sfd(find_reactions(0))
-    max = sfd(find_reactions(0))
-    for i in range(0, 1251 + 856, 10):
+    minout = sfd(find_reactions(0))
+    maxout = sfd(find_reactions(0))
+    #here is we put 1 instaed of 10, it gives something completely wrong for some reason
+    for i in range(0, 1251 + 856, sample_frequency):
         sfdd = sfd(find_reactions(i))
-        min = [m if m < e else e for m, e in zip(min, sfdd)]
-        max = [m if m > e else e for m, e in zip(max, sfdd)]
-    return min, max
+        for i in range(len(minout)):
+            minout[i] = min(minout[i], sfdd[i])
+            maxout[i] = max(maxout[i], sfdd[i])
+        #min = [m if m < e else e for m, e in zip(min, sfdd)]
+       # max = [m if m > e else e for m, e in zip(max, sfdd)]
+    return minout, maxout
 
 def min_max_bme():
-    min = bmd(0)
-    max = bmd(0)
-    for i in range(0, 1251 + 856, 10):
+    minout = bmd(0)
+    maxout = bmd(0)
+    for i in range(0, 1251 + 856, sample_frequency):
         bmdd = bmd(i)
-        min = [m if m < e else e for m, e in zip(min, bmdd)]
-        max = [m if m > e else e for m, e in zip(max, bmdd)]
-    return min, max
+        for i in range(len(minout)):
+            minout[i] = min(minout[i], bmdd[i])
+            maxout[i] = max(maxout[i], bmdd[i])
+        #min = [m if m < e else e for m, e in zip(min, bmdd)]
+        #max = [m if m > e else e for m, e in zip(max, bmdd)]
+    return minout, maxout
 
 
 def maxl(a, b):
