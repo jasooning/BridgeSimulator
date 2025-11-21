@@ -293,8 +293,8 @@ if __name__ == "__main__":
     print (max(SFD_ENV))
 
     #exit()
-    supports = CrossSection.get_rects("./section_v4_supports.txt")
-    middle = CrossSection.get_rects("./section_v4_middle.txt")
+    supports = CrossSection.get_rects("./section_t.txt")
+    middle = CrossSection.get_rects("./section_t.txt")
 
     #varying FOS across the bridge
     list = FOS_whole_bridge(SFD_ENV, BMD_ENV, supports, middle)

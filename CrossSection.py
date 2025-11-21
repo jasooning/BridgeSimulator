@@ -242,7 +242,7 @@ def get_rects(file_name):
 
 if __name__ == "__main__":
 
-    rects = get_rects("./section_v4_supports.txt")
+    rects = get_rects("./section_t.txt")
     ybarr = ybar(rects)
 
     print (ybarr, I(rects), Q(rects, 100, ybarr), width_at_location(rects, 100))
