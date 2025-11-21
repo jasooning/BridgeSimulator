@@ -3,17 +3,17 @@ from pylab import loadtxt
 import plot
 
 # masses of m1 = wagons, m2 = locomotive
-m1 = 420 # locomotive
+m1 = 439#420 # locomotive
 #m1 = 400/3
-m2 = 277 # first car
+m2 = 289#277 # first car
 #m2 = 400/3
-m3 = 304 # last car
+m3 = 318#304 # last car
 #m3 = 400/3#
 #spacing constants between applied loads (as given from front of train) [offsets]
 spacing = [0, -176, -340, -516, -680, -856]
 
 #dimensions of bridge
-sample_frequency = 1
+sample_frequency = 10
 length = 1250
 
 #returns tuple of tuples for both reactions (A on left, B on right), found as a sum of moments
