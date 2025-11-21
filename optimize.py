@@ -31,11 +31,6 @@ mu = 0.2
 
 #function returns FOS's of all possible flexural stresses along the bridge [assumes constant crosssection] [TODO]
 def flex_stress(M, I, y_top, y_bot):
-    if (M == 0):
-        return {
-            "Max Compression" : 0,
-            "Max Tension" : 0,
-        }
     global sigma_C, sigma_T
 
     #Mmax = max(BMD)
@@ -61,7 +56,7 @@ def shear_stress(V, Q, I, b):
 
     tau_m = abs(V * Q / I / b)
     return {
-        "Material Shear Stress" : tau_max / tau_m,
+        "Material Shear Stress" : 1e3 if tau_m == 0 else tau_max / tau_m#tau_max / tau_m,
         #"Glue Shear Stress" : 0 if tau_g == 0 else tau_max / tau_g # Ignore Glue shear sytress
     }
 
@@ -69,13 +64,6 @@ def shear_stress(V, Q, I, b):
 #then calculates all minimum FOS's for each plate buckling case
 #returns FOS for the position on the bridge
 def plate_buckling(rects, ybar, M, V, I, Q, pos):
-    if (M == 0) : 
-        return {
-            "CASE 1 PLATE BUCKLING" : 0, 
-            "CASE 2 PLATE BUCKLING" : 0, 
-            "CASE 3 PLATE BUCKLING" : 0, 
-            "CASE 4 PLATE BUCKLING" : 0
-        }
     global E, mu, sigma_C, diaphragm_spacing
 
     h_rects = []
@@ -159,19 +147,19 @@ def plate_buckling(rects, ybar, M, V, I, Q, pos):
             #FOS = M_min / M_actual
             sigma_crit = 4 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][3] / i[0][2]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] / 2 - ybar), abs(i[0][1] + i[0][3] / 2 - ybar)))
-            min1 = min(min1, M_min / M)
+            min1 = min(min1, float("inf") if M == 0 else M_min / M)
 
         elif (i[1] == 2):
             sigma_crit = 0.425 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][3] / i[0][2]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] / 2 - ybar), abs(i[0][1] + i[0][3] / 2 - ybar)))
 
-            min2 = min(min2, M_min / M)
+            min2 = min(min2, float("inf") if M == 0 else M_min / M)
 
         elif (i[1] == 3):
             sigma_crit = 6 * numpy.pi ** 2 * E / 12 / (1 - mu ** 2) * (i[0][2] / i[0][3]) ** 2
             M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] / 2 - ybar), abs(i[0][1] + i[0][3] / 2 - ybar)))
 
-            min3 = min(min3, M_min / M)
+            min3 = min(min3, float("inf") if M == 0 else M_min / M)
 
         elif (i[1] == 4):
             #check entire length of bridge w all diaphragms for maximum Pcrit & any failure caused by Pcrit (TODO)
@@ -197,13 +185,13 @@ def plate_buckling(rects, ybar, M, V, I, Q, pos):
 
                 #M_min = sigma_crit * I / (max(abs(i[0][1] - i[0][3] - ybar), abs(i[0][1] + i[0][3] - ybar)))
 
-                min4 = min(min4, tau_allowable / tau_current)
+                min4 = min(min4, float("inf") if tau_current == 0 else tau_allowable / tau_current)
 
     return {
-        "CASE 1 PLATE BUCKLING" : (0 if min1 == float("inf") else abs(min1)), 
-        "CASE 2 PLATE BUCKLING" : (0 if min2 == float("inf") else abs(min2)), 
-        "CASE 3 PLATE BUCKLING" : (0 if min3 == float("inf") else abs(min3)), 
-        "CASE 4 PLATE BUCKLING" : (0 if min4 == float("inf") else abs(min4)), 
+        "CASE 1 PLATE BUCKLING" : (1e3 if min1 == float("inf") else abs(min1)), 
+        "CASE 2 PLATE BUCKLING" : (1e3 if min2 == float("inf") else abs(min2)), 
+        "CASE 3 PLATE BUCKLING" : (1e3 if min3 == float("inf") else abs(min3)), 
+        "CASE 4 PLATE BUCKLING" : (1e3 if min4 == float("inf") else abs(min4)), 
     }
 
 
