@@ -208,9 +208,12 @@ def width_at_location(rects, ybar):
     return out
 
 def cross_section_at_pos(pos):
-    spac = [125, 1125]
-    if spac[0] < pos < spac[1]:
+    # support, edge, middle
+    spac = [125, 500, 800, 1125]
+    if (spac[1] < pos < spac[2]):
         return "middle"
+    if spac[0] < pos < spac[1] or spac[2] < pos < spac[3]:
+        return "edge"
     return "support"
 
 

@@ -195,7 +195,8 @@ def plate_buckling(rects, ybar, M, V, I, Q, pos):
     }
 
 
-def FOS_whole_bridge(SFD_ENV, BMD_ENV, supports, middle):
+def FOS_whole_bridge(SFD_ENV, BMD_ENV, supports, edge, middle):
+    #rects ybar ytop ybot I Q b
     #support cross-section
     ybar_s = CrossSection.ybar(supports)
     y_top_s = CrossSection.ybar_top(supports)
@@ -214,6 +215,15 @@ def FOS_whole_bridge(SFD_ENV, BMD_ENV, supports, middle):
     Q_m = CrossSection.Q(middle, ybar_m, ybar_m)
     b_m = CrossSection.width_at_location(middle, ybar_m)
 
+    #edge (between support and middle)
+    ybar_e = CrossSection.ybar(edge)
+    y_top_e = CrossSection.ybar_top(edge)
+    y_bot_e = CrossSection.ybar_bot(edge)
+
+    I_e = CrossSection.I(edge)
+    Q_e = CrossSection.Q(edge, ybar_e, ybar_e)
+    b_e = CrossSection.width_at_location(edge, ybar_e)
+
     out = []
     minout = {}
 
@@ -224,6 +234,10 @@ def FOS_whole_bridge(SFD_ENV, BMD_ENV, supports, middle):
             FOS = flex_stress(BMD_ENV[i], I_s, y_top_s, y_bot_s)
             FOS = FOS | shear_stress(SFD_ENV[i], Q_s, I_s, b_s)
             FOS = FOS | plate_buckling(supports, ybar_s, BMD_ENV[i], abs(SFD_ENV[i]), I_s, Q_s, i)
+        elif (mode == "edge"):
+            FOS = flex_stress(BMD_ENV[i], I_e, y_top_e, y_bot_e)
+            FOS = FOS | shear_stress(SFD_ENV[i], Q_e, I_e, b_e)
+            FOS = FOS | plate_buckling(supports, ybar_e, BMD_ENV[i], abs(SFD_ENV[i]), I_e, Q_e, i)
         elif (mode == "middle"):
             FOS = flex_stress(BMD_ENV[i], I_m, y_top_m, y_bot_m)
             FOS = FOS | shear_stress(SFD_ENV[i], Q_m, I_m, b_m)
