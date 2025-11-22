@@ -13,7 +13,7 @@ m3 = 318#304 # last car
 spacing = [0, -176, -340, -516, -680, -856]
 
 #dimensions of bridge
-sample_frequency = 10
+sample_frequency = 1
 length = 1250
 
 #returns tuple of tuples for both reactions (A on left, B on right), found as a sum of moments
@@ -147,17 +147,14 @@ def combine(MIN_SFD, MAX_SFD, ENV_SFD, MIN_BMD, MAX_BMD, ENV_BMD):
 
 
 if __name__ == "__main__":
-
-
-    R = find_reactions(1028)
-    SFD = sfd(R)
-    BMD = bmd(1028)
-
     MIN_SFD, MAX_SFD = min_max_sfe()
     MIN_BMD, MAX_BMD = min_max_bme()
 
     ENV_BMD = min_max(MIN_BMD, MAX_BMD, False)
     ENV_SFD = min_max(MIN_SFD, MAX_SFD, True)
+
+    print("Maximum SFE: ", max(ENV_SFD))
+    print("Maximum BME: ", max(ENV_BMD))
 
     L = combine(MIN_SFD, MAX_SFD, ENV_SFD, MIN_BMD, MAX_BMD, ENV_BMD)
     L.insert(0, "POSITION (mm),MIN SFE (N),MAX SFE (N),SFE (N),MIN BME (N mm),MAX BME (N mm),BME (N mm)")

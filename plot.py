@@ -81,7 +81,7 @@ def plot(data_rows, plotting_fos):
         ax1.axhline(y=1, color='red', linestyle='--', linewidth=1)
         ax2.axhline(y=1, color='red', linestyle='--', linewidth=1)
 
-        plt.title("BME and SFE with Position")
+        plt.title("Load Case 1 SFE and BME")
         ax1.set_xlabel(x_label)
         ax1.grid(True, which="both", ls="--", alpha=0.5)
 
@@ -92,7 +92,8 @@ def plot(data_rows, plotting_fos):
 
         plt.xticks(np.arange(0, max(x)+50, 100))
         plt.tight_layout()
-#        return  # exit early since already plotted
+        plt.show()
+        return  # exit early since already plotted
 
     # --- Common plotting for FOS case ---
     plt.xlabel(x_label)

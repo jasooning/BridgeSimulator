@@ -323,9 +323,13 @@ if __name__ == "__main__":
     SFD_ENV = BMD.SFE()
 
     #get arrays of rectangles of different cross-sections
-    supports = CrossSection.get_rects("./section_v4_supports.txt")
-    edge = CrossSection.get_rects("./section_v4_middle.txt")
-    middle = CrossSection.get_rects("./section_v4_midmid.txt")
+    #supports = CrossSection.get_rects("./section_v4_supports.txt")
+    #edge = CrossSection.get_rects("./section_v4_middle.txt")
+    #middle = CrossSection.get_rects("./section_v4_midmid.txt")
+
+    supports = CrossSection.get_rects("./test_shape.txt")
+    edge = CrossSection.get_rects("./test_shape.txt")
+    middle = CrossSection.get_rects("./test_shape.txt")
 
     #get FOS across bridge (array of strings...)
     list = FOS_whole_bridge(SFD_ENV, BMD_ENV, supports, edge, middle)
