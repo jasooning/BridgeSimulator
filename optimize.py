@@ -318,6 +318,7 @@ def print_dict(dict):
 
 #main
 if __name__ == "__main__":
+    #git pull --no-rebase
     #pre-compute SFE and BME
     BMD_ENV = BMD.BME()
     SFD_ENV = BMD.SFE()
