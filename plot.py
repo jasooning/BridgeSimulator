@@ -43,7 +43,7 @@ def plot(data_rows, plotting_fos):
         for i, y in enumerate(y_series):
             plt.plot(x, y, label=y_labels[i])
         plt.yscale("log")
-        plt.ylim((0.9, 10**2))
+        plt.ylim((0.5, 10**2))
         plt.ylabel("FOS (log scale)")
         plt.axhline(y=1, color='red', linestyle='--', linewidth=1, label='FOS = 1')
 
@@ -71,6 +71,7 @@ def plot(data_rows, plotting_fos):
 
         # Right axis
         ax2 = ax1.twinx()
+        ax2.invert_yaxis()
         ax2.plot(x, y_series[3], color='tab:olive', label=y_labels[3])
         ax2.plot(x, y_series[4], color='tab:red', label=y_labels[4])
         ax2.plot(x, y_series[5], color='tab:orange', label=y_labels[5])
@@ -97,7 +98,7 @@ def plot(data_rows, plotting_fos):
 
     # --- Common plotting for FOS case ---
     plt.xlabel(x_label)
-    plt.title("Bridge Failure Modes vs Position")
+    plt.title("Load Case Final Design Final Failure Modes")
     plt.grid(True, which="both", ls="--", alpha=0.5)
     plt.legend(loc="upper right")
     plt.tight_layout()
