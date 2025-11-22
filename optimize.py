@@ -24,7 +24,7 @@ import plot
 #diaphragm spacing, 0 and 1250 are necessary for code to run, but aren't actually placed in the bridge
 #distributed densely closer to supports, and more rarely towards the middle
 #total of 6 diaphragms
-diaphragm_spacing = [0, 20, 30, 425, 825, 1220, 1230, 1250]#, 20, 30, 425, 825, 1220, 1230, 
+diaphragm_spacing = [0, 20, 30, 475, 750, 1220, 1230, 1250]#, 20, 30, 425, 825, 1220, 1230, 
 
 #constants (MPa)
 tau_max = 4

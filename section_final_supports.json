@@ -1,0 +1,101 @@
+[
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      10.0,
+      0.0
+    ],
+    "rotation": 0.0,
+    "w": 80.0,
+    "h": 1.27
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      10.0,
+      1.27
+    ],
+    "rotation": 0.0,
+    "w": 1.27,
+    "h": 57.46
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      88.73,
+      1.27
+    ],
+    "rotation": 0.0,
+    "w": 1.27,
+    "h": 57.46
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      10.0,
+      58.73
+    ],
+    "rotation": 0.0,
+    "w": 80.0,
+    "h": 1.27
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      10.0,
+      60.0
+    ],
+    "rotation": 0.0,
+    "w": 2.54,
+    "h": 37.46
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      87.46,
+      60.0
+    ],
+    "rotation": 0.0,
+    "w": 2.54,
+    "h": 37.46
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      0.0,
+      98.73
+    ],
+    "rotation": 0.0,
+    "w": 100.0,
+    "h": 1.27
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      2.54,
+      97.46
+    ],
+    "rotation": 0.0,
+    "w": 10.0,
+    "h": 1.27
+  },
+  {
+    "type": "rectangle",
+    "name": "Rectangle",
+    "pos": [
+      87.46,
+      97.46
+    ],
+    "rotation": 0.0,
+    "w": 10.0,
+    "h": 1.27
+  }
+]

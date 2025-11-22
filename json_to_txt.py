@@ -2,7 +2,7 @@ import json
 import tkinter as tk
 from tkinter import filedialog
 
-path = "section_v4_midmid.json"
+path = "section_final_midmid.json"
 try:
     with open(path, 'r') as file:
         data = json.load(file)
