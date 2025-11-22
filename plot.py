@@ -2,44 +2,42 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def plot(data_rows, plotting_fos):
-    """
-    data_rows: list of CSV-style strings.
-               First row contains column labels.
-               First column of each row is the x-axis.
-    plotting_fos: boolean flag; if True, plot FOS (log scale).
-                  if False, assume only two columns and plot on left/right axes.
-    """
-
-    # --- Parse CSV rows into lists ---
+    #parse string into list of strings
     parsed = [row.strip().split(",") for row in data_rows]
 
-    # --- Extract labels from first row ---
-    labels = parsed[0]                # e.g. ["Position (mm)", "Label1", "Label2"]
+    # first string in list data_rows contains labels, so extracts those
+    labels = parsed[0]
     x_label = labels[0]
     y_labels = labels[1:]
 
-    parsed = parsed[1:]  # skip header
+    parsed = parsed[1:] # skips label row
 
-    # --- Convert numeric rows ---
+    #converts all strings to numbers and values
+    #to be plotted
     x = []
     y_series = [[] for _ in y_labels]
 
     for row in parsed:
+        #skip rows with missing values (sometimes happens)
         if not row or len(row) < len(labels):
-            continue  # skip malformed rows
+            continue
 
-        # first column → x axis
+        #very first column is x-axis --> mm
         x.append(float(row[0]))
 
-        # remaining columns → y-series
+       #the rest become data to be plotted
         for i in range(len(y_labels)):
             y_series[i].append(float(row[i+1]))
 
-    # --- Plotting ---
+    #creates figure
     plt.figure(figsize=(12, 7))
 
+    #since two separate graphs are being made, Envelopes and factors of safety
+    #we need to differentiate
+
+    #when plotting Factor of safety, plot on log scale to be discerned easier
+    #also limit y-height to 100 since factors of safety above that are irrelevant
     if plotting_fos:
-    # All series on same (log) axis
         for i, y in enumerate(y_series):
             plt.plot(x, y, label=y_labels[i])
         plt.yscale("log")
@@ -47,19 +45,19 @@ def plot(data_rows, plotting_fos):
         plt.ylabel("FOS (log scale)")
         plt.axhline(y=1, color='red', linestyle='--', linewidth=1, label='FOS = 1')
 
-        # --- Highlight region using smallest series at each x ---
-        y_array = np.array(y_series)  # shape: (num_series, num_points)
-        min_series_idx = np.argmin(y_array, axis=0)  # index of smallest series at each x
+        #highlight regions by what mode of failure is governing
+        y_array = np.array(y_series)
+        min_series_idx = np.argmin(y_array, axis=0)
 
         for xi, idx in zip(x, min_series_idx):
-            # vertical line region (just a narrow rectangle around xi)
+            #creates highlight of graph
             plt.fill_betweenx(plt.ylim(), xi-0.5, xi+0.5, color=plt.gca().lines[idx].get_color(), alpha=0.1)
-
+    
+    #now if plotting envelopes, different logic
+    #use two separate y-axes
+    #SFEs use left axis
+    #BMEs use right axis (also inverted so positive is down)
     else:
-        # Two-column special case: left/right axes
-        #if len(y_series) != 2:
-            #raise ValueError("For plotting_fos=False, there must be exactly 2 columns")
-
         fig, ax1 = plt.subplots(figsize=(12, 7))
 
         # Left axis
@@ -96,7 +94,6 @@ def plot(data_rows, plotting_fos):
         plt.show()
         return  # exit early since already plotted
 
-    # --- Common plotting for FOS case ---
     plt.xlabel(x_label)
     plt.title("Load Case Final Design Final Failure Modes")
     plt.grid(True, which="both", ls="--", alpha=0.5)
