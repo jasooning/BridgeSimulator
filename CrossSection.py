@@ -1,13 +1,21 @@
 import ast
 #shapes defined by a list of vertices
 
-def load_file(filename):
-    """
-    Reads a text file containing lists of tuples on each line,
-    and returns a list of lists of tuples.
+#overall function giving an array of rectangles in a text file
+def get_rects(file_name):
+    file = load_file(file_name)
+
+    rects = []
+
+    for i in file:
+        rects.append(convert_to_rect(i))
     
-    Example line in file: [(0, 4), (4, 4), (4, 3.5), (0, 3.5)]
-    """
+    return rects
+
+#load a file given path filename
+#return as list
+#each index of returned list holds list of tuples representing corners of rectangle
+def load_file(filename):
     all_polygons = []
 
     with open(filename, "r") as f:
@@ -20,7 +28,9 @@ def load_file(filename):
     
     return all_polygons
 
-#converts 4 tuples to a list of 4 numbers [x, y, w, h]   
+#takes list of 4 tuples representing 4 corners of a rectangles
+#converts to list of 4 numbers, representing [x, y, w, h]
+#using central coordinates, that is x, y are in the center of the rectangle
 def convert_to_rect(verts):
 
     xs = [a[0] for a in verts]
@@ -37,8 +47,7 @@ def convert_to_rect(verts):
 
     return [x, y, w, h]
 
-
-
+#gets centroid-axis of cross-section
 def ybar(rects):
 
     ybar = 0
@@ -50,6 +59,7 @@ def ybar(rects):
 
     return ybar / area
 
+#gets I of cross-section
 def I(rects):
     YBAR = ybar(rects)
 
@@ -92,7 +102,8 @@ def intersect(a, b):
 
 
 
-# return a list of rectangles representing (a minus b)
+#returns list of rectangles which are the sections
+#of a that don't intersect with b: 'inverse intersect'
 def inv_intersect(a, b):
     inter = intersect(a, b)
     if inter is None:
@@ -134,27 +145,31 @@ def inv_intersect(a, b):
 
     return pieces
 
+#boolean checking whether two rectangles intersect
 def intersects(a, b): 
     return abs(a[0]-b[0]) < (a[2]+b[2])/2 and abs(a[1]-b[1]) < (a[3]+b[3])/2
 
+#boolean whether rectangle a intersects with any rectangle in list b
 def int_list(a, b_list):
     for i in b_list:
         if intersects(a, i): return True
     return False
 
+#increase all the heights of all rectangles by arbitrary amount (a lot), returns list of rectangles
 def make_taller(b_list):
     out = []
     for i in b_list: out.append([i[0], i[1], i[2], i[3] + 500])
 
     return out
-
+#increase all widths of rectangles by arbitrary amount, returns list of rectangles
 def make_wider(b_list):
     out = []
     for i in b_list: out.append([i[0], i[1], i[2] + 500, i[3]])
     return out
 
-
 # cleave rectangle a by an array of rectangles b
+#meaning cuts rectangle a by all the 'planes' created by b.
+#ie returns the combined list of all inverse intersections of a with list b
 def cleave(a, b_list):
     pieces = [a]
     count = 0
@@ -178,17 +193,17 @@ def cleave(a, b_list):
 
     return pieces
 
-#gives Q (first moment of area) of the cross section (rects) at the centroidal axis (ybar) measured from bottom
-def Q(rects, ybar):
-    #first find rects below ybar
-    below = [0, ybar - 1000, 1000, 1000 * 2]
+#gives Q (first moment of area) of the cross section (rects) at a given height (height)
+def Q(rects, height, ybar):
+
+    block = [0, height - 1000, 1000, 1000 * 2]
+    if (height > ybar): block = [0, height + 1000, 1000, 1000 * 2]
 
     rects_below = []
     for i in rects:
-        print(i)
-        rects_below.append(intersect(i, below))
+        rects_below.append(intersect(i, block))
 
-    print ("rects below", rects_below)
+    #print ("rects below", rects_below)
     
     out = 0
     for i in rects_below:
@@ -197,17 +212,24 @@ def Q(rects, ybar):
 
     return out
 
-#return width at centroid
-def width_at_location(rects, ybar):
+#return width of cross-section at given location
+def width_at_location(rects, height):
     out = 0
     for i in rects:
-        if i[1] - i[3] / 2 < ybar < i[1] + i[3] / 2:
+        if i[1] - i[3] / 2 < height <= i[1] + i[3] / 2:
             out += i[2]
 
     return out
 
-
-
+#since varying cross-section across length of bridge, used to specify cross-section type at specific location on bridge
+def cross_section_at_pos(pos):
+    # support, edge, middle
+    spac = [125, 510, 810, 1125]
+    if (spac[1] <= pos <= spac[2]):
+        return "middle"
+    if spac[0] <= pos < spac[1] or spac[2] < pos <= spac[3]:
+        return "edge"
+    return "support"
 
 #ybar relative to very bottom of cross-section
 #to find ybar relative
@@ -216,23 +238,19 @@ def ybar_bot(rects):
 
     return YBAR - min([a[1] - a[3] / 2 for a in rects])
 
+#distance from centroid to top of cross-section
 def ybar_top(rects):
     YBAR = ybar(rects)
     return max([a[1] + a[3] / 2 for a in rects]) - YBAR
 
-def get_rects():
-    file = load_file("./section_v3.txt")
-
-    rects = []
-
-    for i in file:
-        rects.append(convert_to_rect(i))
-    
-    return rects
-
 if __name__ == "__main__":
 
-    rects = get_rects()
+    rects = get_rects("./Design Iterations/design6_middle.txt")
     ybarr = ybar(rects)
 
-    print (ybarr, I(rects), Q(rects, ybarr), width_at_location(rects, ybarr))
+    print ("ybar: ", ybarr)
+    print ("I: ", I(rects))
+    print ("Q_centroid: ", Q(rects, ybarr, ybarr))
+    print ("width at centroid: ", width_at_location(rects, ybarr))
+
+    #print (ybarr, I(rects), Q(rects, 60, ybarr), width_at_location(rects, ybarr))
