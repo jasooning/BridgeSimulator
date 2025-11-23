@@ -62,6 +62,10 @@ def draw_bridge_diagram():
         y_text = beam_height + 25 if x in [30, 1230] else beam_height + 10
         ax.text(x, y_text, str(x), color='#d62728', fontsize=8, rotation=90, ha='center', va='bottom', fontweight='bold')
 
+    ax.annotate('', xy=(-25, 0), xytext=(-25, beam_height),
+        arrowprops=dict(arrowstyle='<|-|>', color='black', lw=1.2))
+    ax.text(-35, beam_height/2, "100", rotation=90, ha='center', va='center', fontsize=10, fontweight='bold')
+
     ax.plot(25, -5, marker='^', markersize=14, color='#ffcc00', markeredgecolor='black', clip_on=False, zorder=10)
     ax.plot(1225, -5, marker='o', markersize=14, color='#ffcc00', markeredgecolor='black', clip_on=False, zorder=10)
     
