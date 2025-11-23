@@ -156,4 +156,4 @@ if __name__ == "__main__":
 
     del L[1], L[-1]
 
-    plot.plot(L, False)
+    plot.plot(L, False, "Load Case 1 SFE and BME")
