@@ -112,6 +112,7 @@ def draw_bridge_diagram():
     
     ax.text(-80, y_l2, "Layer 2", va='center', ha='right', fontsize=10, color='black', fontweight='bold')
     
+
     for i, seg_len in enumerate(l2_segments):
         end_seg_x = l2_current_x + seg_len
         
