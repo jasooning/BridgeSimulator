@@ -321,9 +321,9 @@ def print_dict(dict):
 #main
 if __name__ == "__main__":
     #get arrays of rectangles of different cross-sections
-    supports = CrossSection.get_rects("./Design Iterations/design6_supports.txt")
-    edge = CrossSection.get_rects("./Design Iterations/design6_edge.txt")
-    middle = CrossSection.get_rects("./Design Iterations/design6_middle.txt")
+    supports = CrossSection.get_rects("./Design Iterations/design3.txt")
+    edge = CrossSection.get_rects("./Design Iterations/design3.txt")
+    middle = CrossSection.get_rects("./Design Iterations/design3.txt")
 
 
     #git pull --no-rebase
@@ -342,6 +342,6 @@ if __name__ == "__main__":
     del list[1], list[-1]
 
     #use plot.py to plot list
-    plot.plot(list, True, "Design 6 Load Case Final Failure Modes")
+    plot.plot(list, True, "Design 3 Load Case Final Failure Modes")
 
     print ("DONE")

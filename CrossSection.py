@@ -201,7 +201,6 @@ def Q(rects, height, ybar):
 
     rects_below = []
     for i in rects:
-        print(i)
         rects_below.append(intersect(i, block))
 
     #print ("rects below", rects_below)
@@ -246,7 +245,12 @@ def ybar_top(rects):
 
 if __name__ == "__main__":
 
-    rects = get_rects("./section_final_supports.txt")
+    rects = get_rects("./Design Iterations/design6_middle.txt")
     ybarr = ybar(rects)
 
-    print (ybarr, I(rects), Q(rects, 60, ybarr), width_at_location(rects, ybarr))
+    print ("ybar: ", ybarr)
+    print ("I: ", I(rects))
+    print ("Q_centroid: ", Q(rects, ybarr, ybarr))
+    print ("width at centroid: ", width_at_location(rects, ybarr))
+
+    #print (ybarr, I(rects), Q(rects, 60, ybarr), width_at_location(rects, ybarr))
