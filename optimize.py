@@ -321,9 +321,9 @@ def print_dict(dict):
 #main
 if __name__ == "__main__":
     #get arrays of rectangles of different cross-sections
-    supports = CrossSection.get_rects("./Design Iterations/design3.txt")
-    edge = CrossSection.get_rects("./Design Iterations/design3.txt")
-    middle = CrossSection.get_rects("./Design Iterations/design3.txt")
+    supports = CrossSection.get_rects("./Design Iterations/design4_supports.txt")
+    edge = CrossSection.get_rects("./Design Iterations/design4_middle.txt")
+    middle = CrossSection.get_rects("./Design Iterations/design4_middle.txt")
 
 
     #git pull --no-rebase

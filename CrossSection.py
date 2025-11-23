@@ -245,7 +245,7 @@ def ybar_top(rects):
 
 if __name__ == "__main__":
 
-    rects = get_rects("./Design Iterations/design6_middle.txt")
+    rects = get_rects("./Design Iterations/design0.txt")
     ybarr = ybar(rects)
 
     print ("ybar: ", ybarr)
