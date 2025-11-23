@@ -25,7 +25,8 @@ import plot
 #distributed densely closer to supports, and more rarely towards the middle
 #total of 6 diaphragms
 #diaphragm_spacing = [30, 150, 350, 630, 910, 1110,]#
-diaphragm_spacing = [0, 25, 425, 825, 1225, 1250]
+diaphragm_spacing = [0, 20, 30, 425, 825, 1220, 1230, 1250]
+#diaphragm_spacing = [0, 25, 425, 825, 1225, 1250]
 #diaphragm_spacing = [0, 20, 30, 475, 750, 1220, 1230, 1250]#, 20, 30, 425, 825, 1220, 1230, 
 
 #constants (MPa)
@@ -321,9 +322,9 @@ def print_dict(dict):
 #main
 if __name__ == "__main__":
     #get arrays of rectangles of different cross-sections
-    supports = CrossSection.get_rects("./Design Iterations/design4_supports.txt")
-    edge = CrossSection.get_rects("./Design Iterations/design4_middle.txt")
-    middle = CrossSection.get_rects("./Design Iterations/design4_middle.txt")
+    supports = CrossSection.get_rects("./Design Iterations/design6_supports.txt")
+    edge = CrossSection.get_rects("./Design Iterations/design6_edge.txt")
+    middle = CrossSection.get_rects("./Design Iterations/design6_middle.txt")
 
 
     #git pull --no-rebase
@@ -342,6 +343,6 @@ if __name__ == "__main__":
     del list[1], list[-1]
 
     #use plot.py to plot list
-    plot.plot(list, True, "Design 3 Load Case Final Failure Modes")
+    plot.plot(list, True, "Design Final Load Case Final Failure Modes")
 
     print ("DONE")
