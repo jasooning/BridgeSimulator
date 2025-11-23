@@ -12,7 +12,7 @@ spacing = [0, -176, -340, -516, -680, -856]
 #length of bridge kept constant at 1250 mm long
 
 #interval at which the train is placed to generate SFE and BME
-sample_frequency = 1
+sample_frequency = 10
 
 #returns dictionary containing position (mm) and applied load at said position (N)
 #finds reaction forces for the train at a given position
