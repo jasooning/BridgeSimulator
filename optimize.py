@@ -25,7 +25,8 @@ import plot
 #distributed densely closer to supports, and more rarely towards the middle
 #total of 6 diaphragms
 #diaphragm_spacing = [30, 150, 350, 630, 910, 1110,]#
-diaphragm_spacing = [0, 20, 30, 475, 750, 1220, 1230, 1250]#, 20, 30, 425, 825, 1220, 1230, 
+diaphragm_spacing = [0, 25, 425, 825, 1225, 1250]
+#diaphragm_spacing = [0, 20, 30, 475, 750, 1220, 1230, 1250]#, 20, 30, 425, 825, 1220, 1230, 
 
 #constants (MPa)
 tau_max = 4
@@ -319,15 +320,16 @@ def print_dict(dict):
 
 #main
 if __name__ == "__main__":
+    #get arrays of rectangles of different cross-sections
+    supports = CrossSection.get_rects("./Design Iterations/design6_supports.txt")
+    edge = CrossSection.get_rects("./Design Iterations/design6_edge.txt")
+    middle = CrossSection.get_rects("./Design Iterations/design6_middle.txt")
+
+
     #git pull --no-rebase
     #pre-compute SFE and BME
     BMD_ENV = BMD.BME()
     SFD_ENV = BMD.SFE()
-
-    #get arrays of rectangles of different cross-sections
-    supports = CrossSection.get_rects("./section_final_supports.txt")
-    edge = CrossSection.get_rects("./section_final_middle.txt")
-    middle = CrossSection.get_rects("./section_final_midmid.txt")
 
     #supports = CrossSection.get_rects("./test_shape.txt")
     #edge = CrossSection.get_rects("./test_shape.txt")
@@ -340,6 +342,6 @@ if __name__ == "__main__":
     del list[1], list[-1]
 
     #use plot.py to plot list
-    plot.plot(list, True)
+    plot.plot(list, True, "Design 6 Load Case Final Failure Modes")
 
     print ("DONE")

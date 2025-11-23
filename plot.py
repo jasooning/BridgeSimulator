@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot(data_rows, plotting_fos):
+def plot(data_rows, plotting_fos, title):
     #parse string into list of strings
     parsed = [row.strip().split(",") for row in data_rows]
 
@@ -41,7 +41,7 @@ def plot(data_rows, plotting_fos):
         for i, y in enumerate(y_series):
             plt.plot(x, y, label=y_labels[i])
         plt.yscale("log")
-        plt.ylim((0.5, 10**2))
+        plt.ylim((0.9, 10**2))
         plt.ylabel("FOS (log scale)")
         plt.axhline(y=1, color='red', linestyle='--', linewidth=1, label='FOS = 1')
 
@@ -95,7 +95,7 @@ def plot(data_rows, plotting_fos):
         return  # exit early since already plotted
 
     plt.xlabel(x_label)
-    plt.title("Load Case Final Design Final Failure Modes")
+    plt.title(title)
     plt.grid(True, which="both", ls="--", alpha=0.5)
     plt.legend(loc="upper right")
     plt.tight_layout()
